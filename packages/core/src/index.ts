@@ -11,6 +11,26 @@ export type { DrawMode, Rotation } from './bitmap/Bitmap1.js';
 export { encodePng } from './bitmap/png.js';
 export type { PngOptions } from './bitmap/png.js';
 
+export { encodeCode128, FNC1, FNC2, FNC3, FNC4 } from './barcode/code128.js';
+export type { Code128Options } from './barcode/code128.js';
+export { encodeCode39 } from './barcode/code39.js';
+export type { Code39Options } from './barcode/code39.js';
+export { encodeItf, encodeItf14, itfCheckDigit } from './barcode/itf.js';
+export type { ItfOptions } from './barcode/itf.js';
+export {
+  eanCheckDigit,
+  encodeEan13,
+  encodeEan8,
+  encodeUpcA,
+  encodeUpcE,
+  upcEToUpcA,
+} from './barcode/ean.js';
+export type { UpcEOptions } from './barcode/ean.js';
+export { drawLinear, linearWidthDots, renderLinear } from './barcode/render.js';
+export type { LinearRenderOptions } from './barcode/render.js';
+export { BarcodeError, patternToModules } from './barcode/types.js';
+export type { HriGroup, LinearSymbol, LinearSymbology, QuietZone } from './barcode/types.js';
+
 export { CoverageAccumulator } from './raster/CoverageAccumulator.js';
 export { Path } from './raster/Path.js';
 export type { PathCommand } from './raster/Path.js';
