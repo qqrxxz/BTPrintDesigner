@@ -27,6 +27,12 @@ export {
 } from './barcode/ean.js';
 export type { UpcEOptions } from './barcode/ean.js';
 export { drawLinear, linearWidthDots, renderLinear } from './barcode/render.js';
+export { drawMatrix, matrixModule, renderMatrix } from './barcode/matrix.js';
+export type { MatrixRenderOptions, MatrixSymbol, MatrixSymbology } from './barcode/matrix.js';
+export { encodeQr } from './barcode/qr/encode.js';
+export type { QrMode, QrOptions } from './barcode/qr/encode.js';
+export type { ErrorCorrectionLevel } from './barcode/qr/tables.js';
+export { GaloisField, QR_FIELD, DATA_MATRIX_FIELD, reedSolomonRemainder } from './barcode/galois.js';
 export type { LinearRenderOptions } from './barcode/render.js';
 export { BarcodeError, patternToModules } from './barcode/types.js';
 export type { HriGroup, LinearSymbol, LinearSymbology, QuietZone } from './barcode/types.js';
