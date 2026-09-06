@@ -48,15 +48,23 @@ const generatorCache = new Map<string, Uint8Array>();
 
 /**
  * The generator polynomial for `degree` error-correction codewords: the product
- * of (x - alpha^i) for i below the degree, with coefficients high-order first.
+ * of (x - alpha^i), with coefficients high-order first.
+ *
+ * `base` is where the exponents start. QR begins at alpha^0 and Data Matrix at
+ * alpha^1 — a one-line difference that produces entirely different codewords,
+ * so it is a parameter rather than an assumption.
  */
-export function reedSolomonGenerator(field: GaloisField, degree: number): Uint8Array {
-  const key = `${field.primitive}:${degree}`;
+export function reedSolomonGenerator(
+  field: GaloisField,
+  degree: number,
+  base = 0,
+): Uint8Array {
+  const key = `${field.primitive}:${degree}:${base}`;
   const cached = generatorCache.get(key);
   if (cached) return cached;
 
   let generator = new Uint8Array([1]);
-  for (let i = 0; i < degree; i++) {
+  for (let i = base; i < base + degree; i++) {
     const next = new Uint8Array(generator.length + 1);
     for (let j = 0; j < generator.length; j++) {
       next[j] = (next[j] ?? 0) ^ generator[j]!;
@@ -76,8 +84,9 @@ export function reedSolomonRemainder(
   field: GaloisField,
   data: Uint8Array,
   degree: number,
+  base = 0,
 ): Uint8Array {
-  const generator = reedSolomonGenerator(field, degree);
+  const generator = reedSolomonGenerator(field, degree, base);
   const remainder = new Uint8Array(degree);
 
   for (const byte of data) {
