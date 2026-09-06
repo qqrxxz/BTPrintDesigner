@@ -42,6 +42,25 @@ resolutions and is the standing check that this holds.
 | `text/Font` | TrueType face wrapper; glyph outlines in font units, cached |
 | `text/text` | Single-line layout: proportional or fixed pitch, rotation, anchoring |
 | `util/units` | Millimetre, inch and dot conversions for 203 / 300 / 600 dpi |
+| `barcode/*` | Code 128, Code 39, ITF, EAN, UPC, QR, Data Matrix, PDF417 — modules, not pictures |
+| `tspl/*` | TSPL parser and interpreter: printer commands in, label image out |
+
+## Reading TSPL
+
+`renderTspl` runs a source against a one-bit label buffer in the order a printer
+would, and returns the image, the parsed commands and a list of diagnostics with
+line and column positions.
+
+Nothing throws. A malformed line produces a diagnostic and the rest of the label
+still renders, because a preview that blanks the moment you mistype tells you
+less than one that shows you where you are. Unknown commands are reported and
+skipped; a barcode whose payload the symbology cannot hold reports why, in the
+symbology's own words, and leaves the rest of the label alone.
+
+Two things are approximated, and both are visible in the diagnostics rather than
+hidden. Resident fonts are substituted, so character advance is exact and
+letterforms are not. Image commands — `BITMAP`, `PUTBMP`, `PUTPCX` — are
+recognised but not drawn.
 
 ## Sub-dot geometry
 
@@ -57,9 +76,10 @@ a dot disappear. The size ladder in the sample label shows where that happens.
 ## Commands
 
 ```
-npm test         # 63 tests: packing, coverage, primitives, text, PNG
+npm test         # 436 tests: raster, barcodes, TSPL
 npm run build    # type declarations and JS into dist/
-npm run sample   # renders out/sample-{203,300,600}dpi.png
+npm run sample   # renders out/sample-{203,300,600}dpi.png and the barcode sheet
+npm run tspl     # renders the built-in TSPL sample, or a file you name
 ```
 
 ## Fonts

@@ -67,6 +67,8 @@ export type { Glyph } from './text/Font.js';
 export { drawText, drawTextWithMode, measureText, textToPath } from './text/text.js';
 export type { DrawTextOptions, TextAnchor, TextMetrics, TextStyle } from './text/text.js';
 
+export * from './tspl/index.js';
+
 export {
   applyMatrix,
   clamp,
