@@ -1,0 +1,17 @@
+{
+  "name": "btprintdesigner",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Label designer for thermal/Bluetooth printers with a faithful 1-bit preview (TSPL, ZPL, CPCL)",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
