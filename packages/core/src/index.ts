@@ -29,6 +29,8 @@ export type { UpcEOptions } from './barcode/ean.js';
 export { drawLinear, linearWidthDots, renderLinear } from './barcode/render.js';
 export { drawMatrix, matrixModule, renderMatrix } from './barcode/matrix.js';
 export type { MatrixRenderOptions, MatrixSymbol, MatrixSymbology } from './barcode/matrix.js';
+export { encodePdf417 } from './barcode/pdf417/encode.js';
+export type { Pdf417ErrorCorrection, Pdf417Options } from './barcode/pdf417/encode.js';
 export { encodeDataMatrix } from './barcode/datamatrix/encode.js';
 export type { DataMatrixOptions } from './barcode/datamatrix/encode.js';
 export type { SymbolShape, SymbolSize } from './barcode/datamatrix/tables.js';
