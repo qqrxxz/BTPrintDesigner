@@ -80,6 +80,7 @@ export type {
   RectangleElement,
   TextAlignment,
   TextElement,
+  RectangleFill,
   TextStyleSpec,
 } from './model/document.js';
 export type {
@@ -96,6 +97,13 @@ export type { SubstitutionResult } from './model/placeholders.js';
 export { parseDocument, serializeDocument } from './model/validate.js';
 export type { DocumentParseResult, ValidationIssue } from './model/validate.js';
 export { generateTspl } from './generate/tspl.js';
+export { importTspl } from './import/tspl.js';
+export type {
+  ImportMode,
+  TsplImportOptions,
+  TsplImportResult,
+  UnmappedCommand,
+} from './import/tspl.js';
 export type {
   GenerationIssue,
   TsplGenerateOptions,

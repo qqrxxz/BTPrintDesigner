@@ -190,7 +190,12 @@ function readElement(reader: Reader, value: unknown, path: string): LabelElement
         type: 'rectangle',
         width: reader.positive(value['width'], `${path}.width`, 10),
         height: reader.positive(value['height'], `${path}.height`, 10),
-        fill: reader.oneOf(value['fill'], `${path}.fill`, ['solid', 'outline'] as const, 'outline'),
+        fill: reader.oneOf(
+          value['fill'],
+          `${path}.fill`,
+          ['solid', 'outline', 'invert', 'erase'] as const,
+          'outline',
+        ),
         ...(value['lineWidth'] === undefined
           ? {}
           : { lineWidth: reader.positive(value['lineWidth'], `${path}.lineWidth`, 0.3) }),
@@ -315,6 +320,16 @@ export function parseDocument(value: unknown): DocumentParseResult {
     }
   }
 
+  const preamble: string[] = [];
+  if (Array.isArray(value['preamble'])) {
+    value['preamble'].forEach((line, index) => {
+      if (typeof line === 'string') preamble.push(line);
+      else reader.warn(`preamble[${index}]`, 'Preamble lines must be text');
+    });
+  } else if (value['preamble'] !== undefined) {
+    reader.warn('preamble', 'Expected a list of setup lines');
+  }
+
   const document: LabelDocument = {
     version: DOCUMENT_VERSION,
     name: reader.string(value['name'], 'name', 'Label'),
@@ -328,6 +343,7 @@ export function parseDocument(value: unknown): DocumentParseResult {
           },
         }
       : {}),
+    ...(preamble.length > 0 ? { preamble } : {}),
     elements,
     ...(Object.keys(sampleData).length > 0 ? { sampleData } : {}),
   };

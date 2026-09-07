@@ -46,6 +46,7 @@ resolutions and is the standing check that this holds.
 | `tspl/*` | TSPL parser and interpreter: printer commands in, label image out |
 | `model/*` | The label document: language-neutral, millimetres, placeholders |
 | `generate/*` | Document to printer code; the only place that knows about dots |
+| `import/*` | Printer code back to a document, and an honest answer about whether it fits |
 
 ## The document and the code
 
@@ -64,6 +65,31 @@ staircase of bars.
 The preview path is document to code to image, never document to image. The
 picture on screen is therefore rasterised from the same text that reaches the
 printer.
+
+## Linked and detached
+
+`importTspl` reads code back into a document, and its real job is to say
+honestly whether anything was lost. The result is `linked` only when every
+command in the source is held by the model, so regenerating from the canvas
+would produce the same label. Anything the model cannot hold — an image, an
+unknown command, a symbology the canvas does not offer, a job that prints two
+different labels — makes the result `detached`: the code stays the source of
+truth, the canvas steps aside, and the preview carries on rendering from the
+text.
+
+That line is the whole contract. Importing four commands out of five would give
+a canvas that quietly deletes the fifth the first time anything is moved.
+
+Two things keep `linked` useful on real files rather than a theoretical state.
+Printer setup lines — speed, density, code page — are kept verbatim in the
+document's `preamble` and reproduced on the way out, so a file from a real
+printer survives without the model having to model them. And `REVERSE` and
+`ERASE` are element fills rather than unrepresentable commands, because
+inverting a strip is how every printer language draws white text on black.
+
+Round-tripping is checked the way that matters: the label has to come out the
+same, not the text. The tests render both and compare the bits, and check that
+a second trip changes nothing.
 
 ## Reading TSPL
 
@@ -96,11 +122,12 @@ a dot disappear. The size ladder in the sample label shows where that happens.
 ## Commands
 
 ```
-npm test         # 493 tests: raster, barcodes, TSPL, model, generator
+npm test         # 528 tests: raster, barcodes, TSPL, model, generator, importer
 npm run build    # type declarations and JS into dist/
 npm run sample   # renders out/sample-{203,300,600}dpi.png and the barcode sheet
 npm run tspl     # renders the built-in TSPL sample, or a file you name
 npm run model    # document -> TSPL -> image, all three written to out/
+npm run import   # TSPL -> document; reports linked or detached and why
 ```
 
 ## Fonts

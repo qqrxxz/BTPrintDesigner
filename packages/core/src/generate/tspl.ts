@@ -112,11 +112,17 @@ class Generator {
 
   generate(): void {
     const setup = this.options.includeSetup ?? true;
+    const preamble = this.document.preamble ?? [];
     this.lines.push(`SIZE ${this.document.width} mm, ${this.document.height} mm`);
     if (setup) {
       const gap = this.document.gap ?? { height: 2, offset: 0 };
       this.lines.push(`GAP ${gap.height} mm, ${gap.offset} mm`);
-      this.lines.push('DIRECTION 0');
+      // The preamble may already set a direction; emitting the default as well
+      // would leave two contradictory lines for a reader to puzzle over.
+      if (!preamble.some((line) => /^\s*DIRECTION\b/i.test(line))) {
+        this.lines.push('DIRECTION 0');
+      }
+      this.lines.push(...preamble);
     }
     this.lines.push('CLS');
 
@@ -180,6 +186,14 @@ class Generator {
 
     if (element.fill === 'solid') {
       this.lines.push(`BAR ${x},${y},${width},${height}`);
+      return;
+    }
+    if (element.fill === 'invert') {
+      this.lines.push(`REVERSE ${x},${y},${width},${height}`);
+      return;
+    }
+    if (element.fill === 'erase') {
+      this.lines.push(`ERASE ${x},${y},${width},${height}`);
       return;
     }
 

@@ -23,6 +23,16 @@ export interface LabelDocument {
   readonly height: number;
   /** Gap between labels on the roll, in millimetres. */
   readonly gap?: { readonly height: number; readonly offset: number };
+  /**
+   * Printer setup lines reproduced verbatim, between the size and the first
+   * element.
+   *
+   * Speed, density, code page and the like are the printer's business, not the
+   * design's, but dropping them on the way through would change how a job
+   * behaves. Keeping them as text means a file imported from a real printer
+   * survives a round trip without the model having to model them.
+   */
+  readonly preamble?: readonly string[];
   readonly elements: readonly LabelElement[];
   /**
    * Values substituted for placeholders when previewing.
@@ -76,12 +86,23 @@ export interface TextElement extends ElementBase {
   readonly box?: { readonly width: number; readonly height: number };
 }
 
+/**
+ * What a rectangle does to the area it covers.
+ *
+ * `invert` and `erase` are not decoration: inverting a strip is how every
+ * printer language draws white text on black, and erasing is how a template
+ * clears room for a variable field. Modelling them as fills keeps those idioms
+ * inside the document instead of forcing a design that uses them out of the
+ * canvas and into raw code.
+ */
+export type RectangleFill = 'solid' | 'outline' | 'invert' | 'erase';
+
 export interface RectangleElement extends ElementBase {
   readonly type: 'rectangle';
   readonly width: number;
   readonly height: number;
-  readonly fill: 'solid' | 'outline';
-  /** Border width in millimetres; ignored when solid. */
+  readonly fill: RectangleFill;
+  /** Border width in millimetres; only an outline uses it. */
   readonly lineWidth?: number;
   readonly cornerRadius?: number;
 }
