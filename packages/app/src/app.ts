@@ -6,6 +6,7 @@ import {
   defaultContent,
   documentPlaceholders,
   documentVariables,
+  exampleFor,
   findVariable,
   isAvailable,
   encodePng,
@@ -30,7 +31,15 @@ import {
 import { button, checkbox, clear, field, h, numberInput, select, textInput } from './dom.js';
 import { LANGUAGES, strings, type Language, type Strings } from './i18n.js';
 import { translate } from './messages.js';
-import { generateFor, importFor, languageOf, loadFonts, paint, renderFor } from './pipeline.js';
+import {
+  FILE_EXTENSIONS,
+  generateFor,
+  importFor,
+  languageOf,
+  loadFonts,
+  paint,
+  renderFor,
+} from './pipeline.js';
 import { nextElementId, replaceElement, Store } from './state.js';
 
 /** The bridge the preload script installs. */
@@ -46,6 +55,13 @@ interface BtpdApi {
     content: string | Uint8Array;
     extensions: string[];
   }): Promise<string | undefined>;
+  askSave(request: {
+    message: string;
+    detail: string;
+    save: string;
+    discard: string;
+    cancel: string;
+  }): Promise<'save' | 'discard' | 'cancel'>;
   setTitle(title: string): Promise<void>;
   onMenu(handler: (action: string) => void): void;
 }
@@ -202,6 +218,12 @@ export class App {
     const editing = this.editingCode || document.activeElement === this.codeArea;
     const caret = { start: this.codeArea.selectionStart, end: this.codeArea.selectionEnd };
     const scroll = this.codeArea.scrollTop;
+    // The side panels are scrolled containers that get thrown away and built
+    // again, so without this every click would jump the reader back to the top.
+    const panelScroll = new Map<string, number>();
+    for (const panel of this.root.querySelectorAll('.panel')) {
+      panelScroll.set(panel.className, panel.scrollTop);
+    }
 
     clear(this.root);
     this.root.append(
@@ -214,6 +236,11 @@ export class App {
         this.rightPanel(text, derived),
       ),
     );
+
+    for (const panel of this.root.querySelectorAll('.panel')) {
+      const was = panelScroll.get(panel.className);
+      if (was !== undefined) panel.scrollTop = was;
+    }
 
     paint(this.canvas, derived.bitmap);
     this.placeOverlays(derived);
@@ -236,7 +263,7 @@ export class App {
       h(
         'div',
         { class: 'group' },
-        button(text.newLabel, () => this.newLabel()),
+        button(text.newLabel, () => void this.newLabel()),
         button(text.open, () => void this.open()),
         button(text.save, () => void this.save(false)),
         button(text.exportCode, () => void this.exportCode()),
@@ -346,12 +373,18 @@ export class App {
       this.section('properties', text.properties, this.elementProperties(text), true),
       this.section('label', text.label, this.labelProperties(text), false),
       this.section('values', text.values, this.valuesSection(text), false),
-      this.section(
-        'problems',
-        text.problems,
+      // Problems never fold away: a warning nobody can see is a warning nobody
+      // acts on, and this is the panel that says the label will print wrong.
+      h(
+        'div',
+        { class: 'section open' },
+        h(
+          'div',
+          { class: 'section-head' },
+          h('span', { class: 'section-title' }, text.problems),
+          problems === 0 ? undefined : h('span', { class: 'badge' }, String(problems)),
+        ),
         this.problems(text, derived),
-        problems > 0,
-        problems === 0 ? undefined : String(problems),
       ),
     );
   }
@@ -402,14 +435,21 @@ export class App {
 
   private detachedBanner(text: Strings): HTMLElement {
     const state = this.store.get();
+    const language = languageOf(this.store.profile());
     const list = h('ul', { class: 'unmapped' });
     for (const entry of state.unmapped) {
+      // Saying what is wrong and stopping there leaves the reader where they
+      // were. If the command is one this program writes, show the line it
+      // writes: that is a template to copy rather than a rule to guess at.
+      const example = exampleFor(language, entry.source);
       list.append(
         h(
           'li',
           {},
           h('code', {}, `${text.line} ${entry.line}: ${entry.source}`),
           h('span', {}, translate(state.language, entry.reason, entry.code, entry.values)),
+          example === undefined ? undefined : h('span', { class: 'muted' }, text.howItIsWritten),
+          example === undefined ? undefined : h('code', { class: 'example' }, example),
         ),
       );
     }
@@ -1047,8 +1087,77 @@ export class App {
           `width:${Math.max(4, outline.width * scale)}px;height:${Math.max(4, outline.height * scale)}px`,
       });
       box.addEventListener('pointerdown', (event) => this.startDrag(event, element, scale));
+
+      if (element.id === state.selectedId) {
+        const size = {
+          width: outline.width / this.dotsPerMm(),
+          height: outline.height / this.dotsPerMm(),
+        };
+        for (const handle of handlesFor(element)) {
+          const grip = h('div', { class: `handle ${handle}`, 'aria-hidden': true });
+          grip.addEventListener('pointerdown', (event) =>
+            this.startResize(event, element, handle, scale, size),
+          );
+          box.append(grip);
+        }
+      }
       this.overlay.append(box);
     }
+  }
+
+  private dotsPerMm(): number {
+    return this.store.profile().dpi / 25.4;
+  }
+
+  /**
+   * Resizes an element by dragging one of its grips.
+   *
+   * What "size" means depends on the element: a rectangle has a width and a
+   * height of its own, a barcode's width is its module width (the data decides
+   * the rest), and a two-dimensional symbol has only its module. Nothing is
+   * offered where it would not map onto a real property — a line of text is as
+   * tall as its characters, and that is a number, not a corner.
+   *
+   * The keyboard alternative is the properties panel, where the same numbers
+   * are typed exactly rather than approached by hand.
+   */
+  private startResize(
+    event: PointerEvent,
+    element: LabelElement,
+    handle: Handle,
+    scale: number,
+    size: { width: number; height: number },
+  ): void {
+    event.preventDefault();
+    // Without this the outline underneath would start a move at the same time.
+    event.stopPropagation();
+    this.store.select(element.id);
+
+    const perMm = this.dotsPerMm();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const origin = element;
+    document.body.classList.add('dragging');
+
+    const move = (moveEvent: PointerEvent): void => {
+      const dx = (moveEvent.clientX - startX) / scale / perMm;
+      const dy = (moveEvent.clientY - startY) / scale / perMm;
+      this.store.edit(
+        (label) => replaceElement(label, element.id, () => resized(origin, handle, dx, dy, size)),
+        { gesture: true },
+      );
+    };
+
+    const end = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      document.body.classList.remove('dragging');
+      this.store.endGesture();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
   }
 
   /**
@@ -1225,7 +1334,7 @@ export class App {
   // --- files --------------------------------------------------------------
 
   private async menu(action: string): Promise<void> {
-    if (action === 'new') this.newLabel();
+    if (action === 'new') await this.newLabel();
     if (action === 'open') await this.open();
     if (action === 'save') await this.save(false);
     if (action === 'save-as') await this.save(true);
@@ -1233,11 +1342,16 @@ export class App {
     if (action === 'export-png') await this.exportPng();
   }
 
-  private newLabel(): void {
+  private async newLabel(): Promise<void> {
+    if (!(await this.unsavedWorkKept())) return;
     this.store.adopt(starterDocument(), { resetHistory: true, dirty: false });
+    // A new label has no file of its own yet; keeping the old path would let
+    // the next save quietly write an empty sheet over the previous design.
+    this.store.patch({ filePath: undefined });
   }
 
   private async open(): Promise<void> {
+    if (!(await this.unsavedWorkKept())) return;
     const opened = await window.btpd?.openProject();
     if (!opened) return;
     try {
@@ -1259,22 +1373,54 @@ export class App {
     }
   }
 
-  private async save(forceDialog: boolean): Promise<void> {
+  /** Returns false when the reader backed out of the save dialog. */
+  private async save(forceDialog: boolean): Promise<boolean> {
     const state = this.store.get();
     const path = await window.btpd?.saveProject({
       ...(forceDialog || state.filePath === undefined ? {} : { path: state.filePath }),
       content: serializeDocument(state.document),
       suggestedName: `${state.document.name || 'label'}.btpd.json`,
     });
-    if (path) this.store.patch({ filePath: path, dirty: false });
+    if (!path) return false;
+    this.store.patch({ filePath: path, dirty: false });
+    return true;
+  }
+
+  /**
+   * Offers to save work that is about to be thrown away.
+   *
+   * Returns false when the reader changed their mind, so the caller stops.
+   * An empty label is not worth a question: there is nothing in it to lose.
+   */
+  private async unsavedWorkKept(): Promise<boolean> {
+    const state = this.store.get();
+    if (!state.dirty || state.document.elements.length === 0) return true;
+
+    // Without the bridge — the browser preview — there is nothing to save to,
+    // and a question nobody can answer would stop the command dead.
+    if (window.btpd?.askSave === undefined) return true;
+
+    const text = this.text();
+    const answer = await window.btpd.askSave({
+      message: text.unsavedTitle,
+      detail: state.filePath ?? text.unsavedDetail,
+      save: text.save,
+      discard: text.discard,
+      cancel: text.cancel,
+    });
+    if (answer === 'cancel') return false;
+    if (answer === 'save') return this.save(false);
+    return true;
   }
 
   private async exportCode(): Promise<void> {
     const derived = this.derive();
+    const language = languageOf(this.store.profile());
+    const extension = FILE_EXTENSIONS[language];
     await window.btpd?.exportFile({
-      suggestedName: `${this.store.get().document.name || 'label'}.${languageOf(this.store.profile())}`,
+      suggestedName: `${this.store.get().document.name || 'label'}.${extension}`,
       content: derived.code,
-      extensions: [languageOf(this.store.profile()), 'txt'],
+      extensions: [extension, 'txt'],
     });
   }
 
@@ -1310,6 +1456,137 @@ function describeElement(element: LabelElement): string {
   }
   if (element.type === 'rectangle') return `${element.width} × ${element.height} mm`;
   return `${element.x},${element.y} → ${element.x2},${element.y2}`;
+}
+
+/**
+ * Which grips an element gets.
+ *
+ * Only where dragging maps onto something the element actually has: a
+ * rectangle and a text block have two dimensions, a barcode has a height and a
+ * module width, a two-dimensional symbol has a module, and a line has two ends.
+ * A single line of text has neither — its size is the character height.
+ */
+export type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'start' | 'end';
+
+const BOX_HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
+function handlesFor(element: LabelElement): Handle[] {
+  switch (element.type) {
+    case 'rectangle':
+      return BOX_HANDLES;
+    case 'text':
+      return element.box ? BOX_HANDLES : [];
+    case 'barcode':
+      return ['e', 's', 'se'];
+    case 'matrix':
+      return ['se'];
+    case 'line':
+      return ['start', 'end'];
+  }
+}
+
+/** Millimetres, rounded the way the rest of the canvas rounds them. */
+const mm = (value: number): number => Math.round(value * 10) / 10;
+
+/**
+ * The element as it should be after a grip has moved by this much.
+ *
+ * `origin` is the element as it was when the grip was taken hold of, so the
+ * arithmetic is against a fixed starting point rather than against the last
+ * frame — which would drift.
+ */
+function resized(
+  origin: LabelElement,
+  handle: Handle,
+  dx: number,
+  dy: number,
+  size: { width: number; height: number },
+): LabelElement {
+  const west = handle === 'nw' || handle === 'w' || handle === 'sw';
+  const east = handle === 'ne' || handle === 'e' || handle === 'se';
+  const north = handle === 'nw' || handle === 'n' || handle === 'ne';
+  const south = handle === 'sw' || handle === 's' || handle === 'se';
+
+  if (origin.type === 'line') {
+    if (handle === 'start') return { ...origin, x: mm(origin.x + dx), y: mm(origin.y + dy) };
+    return { ...origin, x2: mm(origin.x2 + dx), y2: mm(origin.y2 + dy) };
+  }
+
+  if (origin.type === 'rectangle') {
+    const box = grow(origin.x, origin.y, origin.width, origin.height, dx, dy, {
+      west,
+      east,
+      north,
+      south,
+    });
+    return { ...origin, ...box };
+  }
+
+  if (origin.type === 'text' && origin.box) {
+    const box = grow(origin.x, origin.y, origin.box.width, origin.box.height, dx, dy, {
+      west,
+      east,
+      north,
+      south,
+    });
+    return { ...origin, x: box.x, y: box.y, box: { width: box.width, height: box.height } };
+  }
+
+  if (origin.type === 'barcode') {
+    // The bars are as wide as the data makes them, so the width a reader drags
+    // is the module width: the whole symbol scales with it.
+    const module = east ? scaleModule(origin.moduleWidth, size.width, dx) : origin.moduleWidth;
+    const height = south ? Math.max(1, mm(origin.height + dy)) : origin.height;
+    return { ...origin, moduleWidth: module, height };
+  }
+
+  if (origin.type === 'matrix') {
+    // A symbol is square in modules; one number decides both sides, so the
+    // corner follows whichever way the pointer moved furthest.
+    const along = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+    const reference = Math.abs(dx) > Math.abs(dy) ? size.width : size.height;
+    return { ...origin, moduleWidth: scaleModule(origin.moduleWidth, reference, along) };
+  }
+
+  return origin;
+}
+
+function grow(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  dx: number,
+  dy: number,
+  edges: { west: boolean; east: boolean; north: boolean; south: boolean },
+): { x: number; y: number; width: number; height: number } {
+  const minimum = 0.5;
+  let left = x;
+  let top = y;
+  let across = width;
+  let down = height;
+
+  if (edges.west) {
+    const shift = Math.min(dx, width - minimum);
+    left = mm(x + shift);
+    across = mm(width - shift);
+  }
+  if (edges.east) across = Math.max(minimum, mm(width + dx));
+  if (edges.north) {
+    const shift = Math.min(dy, height - minimum);
+    top = mm(y + shift);
+    down = mm(height - shift);
+  }
+  if (edges.south) down = Math.max(minimum, mm(height + dy));
+
+  return { x: left, y: top, width: across, height: down };
+}
+
+/** A module width that makes the symbol as wide as the pointer asks. */
+function scaleModule(moduleWidth: number, drawn: number, delta: number): number {
+  if (drawn <= 0) return moduleWidth;
+  const factor = Math.max(0.1, (drawn + delta) / drawn);
+  return Math.max(0.05, Math.round(moduleWidth * factor * 100) / 100);
 }
 
 /**

@@ -129,7 +129,7 @@ export const PRESETS: readonly Preset[] = [
       type: 'text',
       x: at.x,
       y: at.y,
-      content: content('text', document, 'Text'),
+      content: content('text', document, 'Текст'),
       style: { heightMm: 3 },
       box: { width: 40, height: 12 },
     }),

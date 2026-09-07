@@ -12,13 +12,29 @@ a barcode turned out. Drag them, nudge them with the arrow keys, or edit the
 numbers on the left.
 
 The right column is the printer code. Editing it is allowed and consequential:
-if the model can hold everything the code says, the canvas keeps driving. If it
-cannot, the canvas steps aside, says exactly which lines it could not hold, and
+if the model can hold everything the code says, the element panel keeps driving.
+If it cannot, the panel switches off, names the lines it did not understand, and
 the code becomes the source of truth while the preview carries on rendering.
+Naming the line is not enough to act on, so where the command is one this
+program writes, the line it would have written is shown underneath — generated
+from the same code that writes labels, so it cannot drift out of date.
 
 The printer chosen in the toolbar decides how many dots there are to the
 millimetre, and the design is stored in millimetres, so switching from a 203 dpi
 printer to a 600 dpi one recomputes the label rather than breaking it.
+
+## Moving and resizing
+
+An element is dragged by its outline and resized by the grips on it — but only
+where a grip maps onto something the element has. A rectangle and a text block
+have two dimensions; a barcode has a height and a module width, because the data
+decides how many bars there are; a two-dimensional symbol has only its module; a
+line has two ends. A single line of text has none of these: its size is the
+character height, which is a number in the panel rather than a corner to pull.
+
+Arrow keys nudge by 0.1 mm, with Shift by 1 mm, and every size is also a field
+in the properties panel — which is the exact way to set one, and the way that
+works without a pointer.
 
 ## The left column
 

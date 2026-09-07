@@ -3,8 +3,9 @@ import { contextBridge, ipcRenderer } from 'electron';
 /**
  * The bridge between the window and the file system.
  *
- * Deliberately small: four file operations and a title. The renderer has no
- * other way out, which means a label file can never be more than data.
+ * Deliberately small: a few file operations, one question and a title. The
+ * renderer has no other way out, which means a label file can never be more
+ * than data.
  */
 const api = {
   openProject: (): Promise<{ path: string; content: string } | undefined> =>
@@ -21,6 +22,14 @@ const api = {
     content: string | Uint8Array;
     extensions: string[];
   }): Promise<string | undefined> => ipcRenderer.invoke('file:export', request),
+
+  askSave: (request: {
+    message: string;
+    detail: string;
+    save: string;
+    discard: string;
+    cancel: string;
+  }): Promise<'save' | 'discard' | 'cancel'> => ipcRenderer.invoke('dialog:ask-save', request),
 
   setTitle: (title: string): Promise<void> => ipcRenderer.invoke('window:set-title', title),
 

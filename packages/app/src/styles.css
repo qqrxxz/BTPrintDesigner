@@ -343,6 +343,30 @@ summary:focus-visible,
   background: rgb(90 169 230 / 10%);
 }
 
+/* Grips ------------------------------------------------------------------- */
+
+.handle {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  margin: -5px 0 0 -5px;
+  border: 1px solid var(--bg);
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.handle.nw { left: 0; top: 0; cursor: nwse-resize; }
+.handle.n { left: 50%; top: 0; cursor: ns-resize; }
+.handle.ne { left: 100%; top: 0; cursor: nesw-resize; }
+.handle.e { left: 100%; top: 50%; cursor: ew-resize; }
+.handle.se { left: 100%; top: 100%; cursor: nwse-resize; }
+.handle.s { left: 50%; top: 100%; cursor: ns-resize; }
+.handle.sw { left: 0; top: 100%; cursor: nesw-resize; }
+.handle.w { left: 0; top: 50%; cursor: ew-resize; }
+/* A line is resized by its ends rather than by its sides. */
+.handle.start { left: 0; top: 0; cursor: move; }
+.handle.end { left: 100%; top: 100%; cursor: move; }
+
 /* Detached banner -------------------------------------------------------- */
 
 .detached {
@@ -370,7 +394,10 @@ summary:focus-visible,
 }
 
 .unmapped li {
-  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
 }
 
 .unmapped code {
@@ -381,6 +408,15 @@ summary:focus-visible,
 
 .unmapped span {
   color: var(--muted);
+}
+
+/* The line this program would have written, to copy rather than to decode. */
+.unmapped code.example {
+  border-left: 2px solid var(--accent);
+  padding-left: 6px;
+  color: var(--accent);
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* Problems --------------------------------------------------------------- */
@@ -410,6 +446,17 @@ summary:focus-visible,
 
 .section {
   border-top: 1px solid var(--line);
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .section > summary {

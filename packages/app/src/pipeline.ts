@@ -70,6 +70,19 @@ export function languageOf(profile: PrinterProfile): PrinterLanguage {
   return profile.languages[0] ?? 'tspl';
 }
 
+/**
+ * The extension a printer file of this language is usually given.
+ *
+ * All three are plain text, but a file that reaches a printer or a piece of
+ * middleware is expected to be named this way, and a `.tspl` nobody recognises
+ * is one more thing to explain.
+ */
+export const FILE_EXTENSIONS: Readonly<Record<PrinterLanguage, string>> = {
+  tspl: 'prn',
+  zpl: 'prq',
+  cpcl: 'lbl',
+};
+
 export function generateFor(
   profile: PrinterProfile,
   document: LabelDocument,

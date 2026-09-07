@@ -82,6 +82,7 @@ export {
   sampleFor,
   variablesFor,
 } from './datamobile/variables.js';
+export { commandExamples, commandsIn, exampleFor } from './printer/examples.js';
 export { findPreset, PRESET_GROUPS, PRESETS, presetsOf } from './model/presets.js';
 export { applyGs1Separator, isGs1 } from './model/gs1.js';
 export type { Preset, PresetGroup } from './model/presets.js';

@@ -75,6 +75,7 @@ export interface Strings {
   readonly detachedList: string;
   readonly backToCanvas: string;
   readonly backToCanvasHint: string;
+  readonly howItIsWritten: string;
   readonly problems: string;
   readonly noProblems: string;
   readonly tooWide: string;
@@ -94,6 +95,10 @@ export interface Strings {
   readonly gs1Separator: string;
   readonly gs1SeparatorNone: string;
   readonly gs1SeparatorHint: string;
+  readonly unsavedTitle: string;
+  readonly unsavedDetail: string;
+  readonly discard: string;
+  readonly cancel: string;
 }
 
 const en: Strings = {
@@ -157,13 +162,15 @@ const en: Strings = {
   sampleData: 'Sample values',
   sampleDataHint: 'Used for the preview. Placeholders are written {{name}}.',
   placeholderMissing: 'No value',
-  detachedTitle: 'The canvas is standing aside',
+  detachedTitle: 'The element panel is switched off',
   detachedBody:
-    'This code contains something the canvas cannot hold, so the code is the source of truth. ' +
-    'The preview still renders from it.',
-  detachedList: 'What the canvas cannot hold:',
+    'Some lines below were not understood as elements, so from here the code is what counts: ' +
+    'the preview is drawn from it, and the panel on the left no longer changes it. ' +
+    'Put those lines right and the elements come back on their own.',
+  detachedList: 'Lines that were not understood:',
   backToCanvas: 'Discard code edits',
-  backToCanvasHint: 'Goes back to the last design the canvas was driving.',
+  backToCanvasHint: 'Goes back to the last design the element panel was driving.',
+  howItIsWritten: 'This program writes it like this:',
   problems: 'Problems',
   noProblems: 'Nothing to report.',
   tooWide: 'The label is wider than this printer can print, by',
@@ -189,6 +196,10 @@ const en: Strings = {
     'identifiers. It goes to the printer as written; the preview reads it as the ' +
     'character it stands for. Which token to use is decided by the printer and by ' +
     'DataMobile, not here.',
+  unsavedTitle: 'Save this label first?',
+  unsavedDetail: 'It has not been saved anywhere yet.',
+  discard: 'Do not save',
+  cancel: 'Cancel',
 };
 
 const ru: Strings = {
@@ -252,13 +263,15 @@ const ru: Strings = {
   sampleData: 'Тестовые значения',
   sampleDataHint: 'Подставляются в превью. Плейсхолдер пишется как {{имя}}.',
   placeholderMissing: 'Нет значения',
-  detachedTitle: 'Холст отошёл в сторону',
+  detachedTitle: 'Панель элементов отключена',
   detachedBody:
-    'В коде есть то, чего холст не удержит, поэтому источник истины — код. ' +
-    'Превью продолжает рисоваться из него.',
-  detachedList: 'Чего холст не удержит:',
+    'Строки ниже не разобрались в элементы, поэтому дальше главным считается код: ' +
+    'превью рисуется из него, а панель слева его больше не меняет. ' +
+    'Исправьте эти строки — и элементы включатся сами.',
+  detachedList: 'Строки, которые не разобрались:',
   backToCanvas: 'Отменить правки кода',
-  backToCanvasHint: 'Возврат к последнему дизайну, которым управлял холст.',
+  backToCanvasHint: 'Возврат к последнему дизайну, которым управляла панель элементов.',
+  howItIsWritten: 'Эта программа пишет её так:',
   problems: 'Проблемы',
   noProblems: 'Сообщать не о чем.',
   tooWide: 'Этикетка шире, чем печатает этот принтер, на',
@@ -284,6 +297,10 @@ const ru: Strings = {
     'применения. В принтер оно уходит как написано, а превью читает его как символ, ' +
     'который оно обозначает. Какое обозначение нужно, решают принтер и DataMobile, ' +
     'а не эта программа.',
+  unsavedTitle: 'Сохранить текущую этикетку?',
+  unsavedDetail: 'Она ещё нигде не сохранена.',
+  discard: 'Не сохранять',
+  cancel: 'Отмена',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

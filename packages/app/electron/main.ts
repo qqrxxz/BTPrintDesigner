@@ -145,6 +145,30 @@ ipcMain.handle(
   },
 );
 
+/**
+ * Asks about unsaved work before something throws it away.
+ *
+ * The wording comes from the renderer because the interface has two languages
+ * and the main process has none.
+ */
+ipcMain.handle(
+  'dialog:ask-save',
+  async (
+    _event,
+    request: { message: string; detail: string; save: string; discard: string; cancel: string },
+  ) => {
+    const answer = await dialog.showMessageBox(window_!, {
+      type: 'warning',
+      message: request.message,
+      detail: request.detail,
+      buttons: [request.save, request.discard, request.cancel],
+      defaultId: 0,
+      cancelId: 2,
+    });
+    return (['save', 'discard', 'cancel'] as const)[answer.response] ?? 'cancel';
+  },
+);
+
 ipcMain.handle('window:set-title', (_event, title: string) => {
   window_?.setTitle(title);
 });
