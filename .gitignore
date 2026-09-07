@@ -4,3 +4,5 @@ dist/
 .DS_Store
 out/
 dist-electron/
+release/
+packages/app/build/icon-preview.png

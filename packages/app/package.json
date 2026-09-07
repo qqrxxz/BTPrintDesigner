@@ -2,7 +2,7 @@
   "name": "@btpd/app",
   "version": "0.0.1",
   "private": true,
-  "description": "Electron shell for BTPrintDesigner",
+  "description": "Дизайнер этикеток для термопринтеров с честным 1-битным превью: TSPL, ZPL, CPCL",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "npm run build:electron && concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
@@ -12,18 +12,20 @@
     "start": "npm run build && electron .",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "dev:web": "vite",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "@btpd/core": "0.0.1"
+    "test": "vitest run",
+    "icon": "node tools/make-icon.mjs",
+    "dist:mac": "npm run build && electron-builder --mac"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "concurrently": "^9.1.0",
-    "electron": "^33.2.0",
+    "electron": "33.4.11",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
+    "vitest": "^2.1.8",
     "wait-on": "^8.0.1",
-    "vitest": "^2.1.8"
-  }
+    "@btpd/core": "0.0.1"
+  },
+  "author": "Дмитрий Алексеев"
 }

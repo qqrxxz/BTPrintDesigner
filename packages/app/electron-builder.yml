@@ -1,0 +1,45 @@
+# Packaging for macOS.
+#
+# The app is not signed with a developer certificate and is not notarised —
+# this is a personal tool, and a certificate costs money and a yearly renewal
+# for no benefit here. It is ad-hoc signed instead, which is what Apple Silicon
+# requires before it will run anything at all; macOS will still ask the first
+# time whether you meant to open it.
+appId: dev.alexeev.btprintdesigner
+productName: BTPrintDesigner
+copyright: Дмитрий Алексеев
+
+directories:
+  buildResources: build
+  output: release
+
+# Only what the app runs from: the built renderer, the compiled main process
+# and the manifest. Sources, tests and tooling stay out of the bundle.
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+
+mac:
+  category: public.app-category.productivity
+  icon: build/icon.icns
+  # No certificate to sign with; the ad-hoc signature is applied afterwards.
+  identity: null
+  target:
+    - target: dmg
+      arch:
+        - arm64
+
+dmg:
+  title: ${productName}
+  artifactName: ${productName}-${version}-${arch}.dmg
+  contents:
+    - x: 140
+      y: 190
+      type: file
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
+
+afterPack: ./tools/after-pack.cjs

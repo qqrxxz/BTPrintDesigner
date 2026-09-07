@@ -33,6 +33,47 @@ harder to find in the documentation, not easier. And an encoder's own refusal �
 why a payload will not fit a symbology — keeps its exact wording, because a
 translated generic would drop the detail that says what to change.
 
+## The icon
+
+`tools/make-icon.mjs` draws the mark and builds `build/icon.icns`. It is drawn
+in code rather than traced from a file so every size is rendered at its own
+resolution, and so that the small sizes can be different artwork: a
+seventeen-bar barcode is a grey smear at sixteen pixels, where each bar lands on
+a third of a pixel. Below sixty-four pixels the label therefore carries three
+thick bars and one block, and stops leaning — a tilted edge at that size is mush
+rather than character.
+
+```
+npm run icon              # writes build/icon.icns and build/icon.png
+node tools/make-icon.mjs --preview   # the small sizes, magnified, to judge them
+```
+
+## Building the installer
+
+```
+npm run dist:mac          # release/BTPrintDesigner-<version>-arm64.dmg
+```
+
+The result is a drag-to-install disk image for Apple Silicon. It is **ad-hoc
+signed and not notarised**: there is no developer certificate behind it, because
+one costs money and a yearly renewal for a tool with one user. The ad-hoc
+signature is applied by `tools/after-pack.cjs` and is not optional — Apple
+Silicon refuses to run an unsigned binary at all.
+
+What that means when opening it the first time: macOS will say it cannot verify
+the developer. Right-click the app and choose Open, and confirm once; after that
+it opens normally. If it was copied from another machine and macOS refuses
+outright, clear the quarantine flag:
+
+```
+xattr -dr com.apple.quarantine /Applications/BTPrintDesigner.app
+```
+
+Only the renderer, the compiled main process and the manifest go into the
+bundle. The core package is deliberately a development dependency: Vite bundles
+it from source, the main process never imports it, and leaving it in the
+manifest put eight megabytes of unused code inside the app.
+
 ## Running it
 
 ```
