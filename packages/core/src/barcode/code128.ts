@@ -225,6 +225,33 @@ export interface Code128Options {
    * validated against GS1 application identifiers.
    */
   readonly gs1?: boolean;
+  /**
+   * Confines the encoding to one subset.
+   *
+   * Printers do not all choose subsets the same way: ZPL's ^BC in its default
+   * mode stays in subset B whatever the data, and only its automatic mode looks
+   * for the shortest encoding. Since a long run of digits is half as wide in
+   * subset C, guessing wrong would show a barcode narrower than the one the
+   * printer produces — and the whole point of the preview is answering whether
+   * it fits.
+   */
+  readonly subset?: 'auto' | 'A' | 'B';
+}
+
+/** Encodes without ever leaving one subset, as ZPL's default mode does. */
+function encodeInSubset(data: string, subset: 'A' | 'B'): { values: number[]; start: Subset } {
+  const values: number[] = [];
+  for (const character of data) {
+    const value = valueIn(character, subset);
+    if (value === undefined) {
+      throw new BarcodeError(
+        `Code 128 subset ${subset} cannot encode "${character}". ` +
+          'Automatic subset selection would, if the printer allows it.',
+      );
+    }
+    values.push(value);
+  }
+  return { values, start: subset };
 }
 
 export function encodeCode128(data: string, options: Code128Options = {}): LinearSymbol {
@@ -241,7 +268,10 @@ export function encodeCode128(data: string, options: Code128Options = {}): Linea
     }
   }
 
-  const { values, start } = encodeValues(payload);
+  const { values, start } =
+    options.subset === undefined || options.subset === 'auto'
+      ? encodeValues(payload)
+      : encodeInSubset(payload, options.subset);
 
   // Modulo 103 checksum, weighted by position with the start code as weight 1.
   let checksum = START[start];

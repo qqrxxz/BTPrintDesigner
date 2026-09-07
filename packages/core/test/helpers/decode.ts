@@ -41,9 +41,11 @@ export function decode(
   if (formats) hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
   if (allowedLengths) hints.set(DecodeHintType.ALLOWED_LENGTHS, allowedLengths);
   hints.set(DecodeHintType.TRY_HARDER, true);
-  reader.setHints(hints);
-
-  return reader.decode(binary).getText();
+  // The hints have to be handed to decode itself: MultiFormatReader.decode
+  // calls setHints again with whatever it was passed, so hints set beforehand
+  // are wiped and every reader runs. On an image with one symbol that goes
+  // unnoticed; on a whole label it returns whichever symbol was found first.
+  return reader.decode(binary, hints).getText();
 }
 
 /**

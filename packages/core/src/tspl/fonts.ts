@@ -1,4 +1,5 @@
 import type { Font } from '../text/Font.js';
+import type { SubstituteFonts } from '../text/substitutes.js';
 import type { TextStyle } from '../text/text.js';
 
 /**
@@ -27,17 +28,12 @@ export const INTERNAL_FONTS: Readonly<Record<string, FontCell>> = {
   '8': { width: 14, height: 25, description: '14 x 25 OCR-A' },
 };
 
-/** The substitute faces a renderer uses in place of the printer's ROM fonts. */
-export interface TsplFontSet {
-  /**
-   * Stands in for font "0", Monotype CG Triumvirate Bold Condensed. A
-   * condensed bold face keeps character widths close enough that a line which
-   * fits here fits there.
-   */
-  readonly scalable: Font;
-  /** Stands in for the fixed-pitch fonts "1" to "8". */
-  readonly fixed: Font;
-}
+/**
+ * The substitute faces a renderer uses in place of the printer's ROM fonts.
+ *
+ * The same pair serves ZPL, whose scalable font is the same Triumvirate.
+ */
+export type TsplFontSet = SubstituteFonts;
 
 /**
  * Em size that makes a face's line box exactly `cellHeight` dots tall.

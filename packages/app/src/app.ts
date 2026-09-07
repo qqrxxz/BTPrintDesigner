@@ -3,11 +3,8 @@ import {
   createDocument,
   documentPlaceholders,
   encodePng,
-  generateTspl,
-  importTspl,
   parseDocument,
   PRINTER_PROFILES,
-  renderTspl,
   serializeDocument,
   type BarcodeElement,
   type LabelDocument,
@@ -20,7 +17,7 @@ import {
 import { button, checkbox, clear, field, h, numberInput, select, textInput } from './dom.js';
 import { LANGUAGES, strings, type Language, type Strings } from './i18n.js';
 import { translate } from './messages.js';
-import { loadFonts, paint } from './pipeline.js';
+import { generateFor, importFor, languageOf, loadFonts, paint, renderFor } from './pipeline.js';
 import { nextElementId, replaceElement, Store } from './state.js';
 
 /** The bridge the preload script installs. */
@@ -50,8 +47,8 @@ declare global {
 interface Derived {
   readonly code: string;
   readonly origins: Readonly<Record<string, number>>;
-  readonly bitmap: ReturnType<typeof renderTspl>['labels'][number]['bitmap'];
-  readonly bounds: ReturnType<typeof renderTspl>['bounds'];
+  readonly bitmap: ReturnType<typeof renderFor>['bitmap'];
+  readonly bounds: ReturnType<typeof renderFor>['bounds'];
   readonly problems: readonly { severity: string; where: string; message: string }[];
 }
 
@@ -98,15 +95,16 @@ export class App {
     const profile = this.store.profile();
     const fonts = this.fonts!;
 
-    const generated = generateTspl(state.document, { dpi: profile.dpi });
+    const size = { widthMm: state.document.width, heightMm: state.document.height };
+    const generated = generateFor(profile, state.document);
     const usesGenerated = state.code === '' || state.code === generated.source;
     const code = usesGenerated ? generated.source : state.code;
 
-    const rendered = renderTspl(code, { fonts, dpi: profile.dpi });
+    const rendered = renderFor(profile, code, fonts, size);
     let origins: Record<string, number> = { ...generated.origins };
     if (!usesGenerated) {
       origins = {};
-      for (const [id, span] of Object.entries(importTspl(code, { dpi: profile.dpi }).origins)) {
+      for (const [id, span] of Object.entries(importFor(profile, code).origins)) {
         origins[id] = span.line;
       }
     }
@@ -142,7 +140,7 @@ export class App {
     return {
       code,
       origins,
-      bitmap: rendered.labels[0]!.bitmap,
+      bitmap: rendered.bitmap,
       bounds: rendered.bounds,
       problems,
     };
@@ -844,7 +842,7 @@ export class App {
   private codeChanged(): void {
     const code = this.codeArea.value;
     const profile = this.store.profile();
-    const imported = importTspl(code, { dpi: profile.dpi, name: this.store.get().document.name });
+    const imported = importFor(profile, code);
 
     if (imported.mode === 'linked') {
       this.store.adopt(imported.document, { mode: 'linked', code, dirty: true });
@@ -940,9 +938,9 @@ export class App {
   private async exportCode(): Promise<void> {
     const derived = this.derive();
     await window.btpd?.exportFile({
-      suggestedName: `${this.store.get().document.name || 'label'}.tspl`,
+      suggestedName: `${this.store.get().document.name || 'label'}.${languageOf(this.store.profile())}`,
       content: derived.code,
-      extensions: ['tspl', 'txt'],
+      extensions: [languageOf(this.store.profile()), 'txt'],
     });
   }
 

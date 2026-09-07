@@ -69,6 +69,18 @@ export type { DrawTextOptions, TextAnchor, TextMetrics, TextStyle } from './text
 
 export * from './tspl/index.js';
 
+export { parseZpl, letterParameter, numberParameter } from './zpl/parse.js';
+export type { ZplCommand, ZplParseResult, ZplPrefix } from './zpl/parse.js';
+export { renderZpl } from './zpl/execute.js';
+export type { ZplLabel, ZplRenderOptions, ZplRenderResult } from './zpl/execute.js';
+export { resolveZplFont, ZPL_FONTS } from './zpl/fonts.js';
+export type { ResolvedZplFont, ZplFontCell, ZplFontSet } from './zpl/fonts.js';
+export { generateZpl } from './generate/zpl.js';
+export type { ZplGenerateOptions, ZplGenerateResult } from './generate/zpl.js';
+export { importZpl } from './import/zpl.js';
+export type { ZplImportOptions, ZplImportResult } from './import/zpl.js';
+export type { SubstituteFonts } from './text/substitutes.js';
+
 export {
   checkLabelWidth,
   customProfile,

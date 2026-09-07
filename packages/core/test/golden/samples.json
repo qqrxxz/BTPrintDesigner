@@ -1,0 +1,154 @@
+{
+  "comment": "ZPL samples rendered by Labelary as reference images. A sample with maxDiffering 0 must match dot for dot; anything else says in its note why it cannot, and the tolerance is set just above what is observed so a regression still fails. Sizes are in inches, as Labelary's URL wants them.",
+  "size": {
+    "width": 4,
+    "height": 2
+  },
+  "samples": [
+    {
+      "id": "box",
+      "zpl": "^XA^FO50,50^GB300,200,10^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "box-thin",
+      "zpl": "^XA^FO40,30^GB700,340,2^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "box-filled",
+      "zpl": "^XA^FO60,60^GB200,100,100^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "box-rounded",
+      "zpl": "^XA^FO50,40^GB400,300,8,B,4^FS^XZ",
+      "maxDiffering": 700,
+      "note": "The corner arcs are anti-aliased in the reference; the straight edges match exactly."
+    },
+    {
+      "id": "circle",
+      "zpl": "^XA^FO100,60^GC200,12,B^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "ellipse",
+      "zpl": "^XA^FO80,60^GE500,250,10,B^FS^XZ",
+      "maxDiffering": 80,
+      "note": "Labelary anti-aliases the curve and this renderer does not, so the outermost row of each end differs by a dot."
+    },
+    {
+      "id": "diagonal-right",
+      "zpl": "^XA^FO100,60^GD400,240,8,B,R^FS^XZ",
+      "maxDiffering": 200,
+      "note": "The sloped edges are anti-aliased in the reference."
+    },
+    {
+      "id": "diagonal-left",
+      "zpl": "^XA^FO100,60^GD400,240,8,B,L^FS^XZ",
+      "maxDiffering": 200,
+      "note": "The sloped edges are anti-aliased in the reference."
+    },
+    {
+      "id": "shapes",
+      "zpl": "^XA^FO20,20^GB772,366,4^FS^FO60,60^GB300,120,20^FS^FO420,60^GC160,10,B^FS^FO60,220^GE300,120,6,B^FS^FO420,240^GD300,100,6,B,R^FS^XZ",
+      "maxDiffering": 300,
+      "note": "Anti-aliased curves and slopes, as in the single-shape samples."
+    },
+    {
+      "id": "code128",
+      "zpl": "^XA^BY3^FO60,60^BCN,120,N,N,N^FD4820-117-A^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "code128-narrow",
+      "zpl": "^XA^BY2^FO40,40^BCN,150,N,N,N^FDSKU-4820-117-A^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "code39",
+      "zpl": "^XA^BY3,3^FO40,60^B3N,N,120,N,N^FDABC-123^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "ean13",
+      "zpl": "^XA^BY3^FO60,60^BEN,140,N,N^FD400638133393^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "itf",
+      "zpl": "^XA^BY3,3^FO40,60^B2N,140,N,N,N^FD12345678^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "qr",
+      "zpl": "^XA^FO80,40^BQN,2,6^FDQA,https://example.com/p/4820^FS^XZ",
+      "minAgreement": 0.96,
+      "note": "Labelary picks a different mask for this payload. Both symbols are valid and decode to the same string, which the test checks instead.",
+      "decodes": {
+        "format": "QR_CODE",
+        "text": "https://example.com/p/4820"
+      }
+    },
+    {
+      "id": "qr-high",
+      "zpl": "^XA^FO80,30^BQN,2,5^FDHA,4820-117-A^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "datamatrix",
+      "zpl": "^XA^FO80,40^BXN,8,200^FDSKU-4820-117-A^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "pdf417",
+      "zpl": "^XA^BY3^FO60,60^B7N,6,5,4,,N^FDSKU-4820-117-A^FS^XZ",
+      "minAgreement": 0.96,
+      "note": "Labelary compacts this payload differently. The symbol is the same size and decodes to the same string, which the test checks instead.",
+      "decodes": {
+        "format": "PDF_417",
+        "text": "SKU-4820-117-A"
+      }
+    },
+    {
+      "id": "text-scalable",
+      "zpl": "^XA^FO50,50^A0N,60,60^FDCable USB-C^FS^XZ",
+      "minAgreement": 0.96,
+      "note": "Resident fonts are substituted, so letterforms differ by design."
+    },
+    {
+      "id": "text-bitmap",
+      "zpl": "^XA^FO50,50^ADN,36,20^FDSKU 4820-117-A^FS^XZ",
+      "minAgreement": 0.98,
+      "note": "Resident fonts are substituted, so letterforms differ by design."
+    },
+    {
+      "id": "text-rotated",
+      "zpl": "^XA^FO400,40^A0R,40,40^FDROTATED^FS^XZ",
+      "minAgreement": 0.97,
+      "note": "Resident fonts are substituted, so letterforms differ by design."
+    },
+    {
+      "id": "label",
+      "zpl": "^XA^FO20,20^GB772,366,4^FS^FO40,44^A0N,50,50^FDCable USB-C 2 m^FS^FO40,110^GB712,3,3^FS^FO40,130^ADN,36,20^FDSKU 4820-117-A^FS^BY3^FO40,190^BCN,110,Y,N,N^FD4820-117-A^FS^FO560,180^BQN,2,6^FDMA,https://example.com/p/4820^FS^XZ",
+      "minAgreement": 0.92,
+      "note": "A whole label: geometry and barcodes match, the substituted text does not."
+    },
+    {
+      "id": "reverse",
+      "zpl": "^XA^FO40,40^GB400,120,120^FS^FO60,70^FR^A0N,60,60^FDREVERSED^FS^XZ",
+      "minAgreement": 0.96,
+      "note": "Resident fonts are substituted, and the reversed field magnifies the difference."
+    },
+    {
+      "id": "ean13-narrow",
+      "zpl": "^XA^BY2^FO60,60^BEN,140,N,N^FD400638133393^FS^XZ",
+      "maxDiffering": 0
+    },
+    {
+      "id": "ean13-wide",
+      "zpl": "^XA^BY4^FO60,60^BEN,100,N,N^FD400638133393^FS^XZ",
+      "maxDiffering": 0
+    }
+  ]
+}

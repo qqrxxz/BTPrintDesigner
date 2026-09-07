@@ -12,7 +12,9 @@ import {
   encodePng,
   Font,
   generateTspl,
+  generateZpl,
   renderTspl,
+  renderZpl,
   serializeDocument,
 } from '../dist/index.js';
 
@@ -110,6 +112,30 @@ const document = createDocument({
 const outDir = fileURLToPath(new URL('../out', import.meta.url));
 mkdirSync(outDir, { recursive: true });
 writeFileSync(`${outDir}/model.btpd.json`, serializeDocument(document));
+
+// The same document in the other language, which is the point of keeping the
+// model language-neutral.
+{
+  const dpi = 203;
+  const { source, issues } = generateZpl(document, { dpi });
+  for (const issue of issues) {
+    console.log(`zpl ${issue.severity}: ${issue.elementId ?? 'document'}: ${issue.message}`);
+  }
+  writeFileSync(`${outDir}/model-${dpi}dpi.zpl`, source);
+  const perMm = dpi / 25.4;
+  const rendered = renderZpl(source, {
+    fonts,
+    dpi,
+    defaultWidthDots: Math.round(document.width * perMm),
+    defaultHeightDots: Math.round(document.height * perMm),
+  });
+  for (const diagnostic of rendered.diagnostics) {
+    console.log(`zpl ${diagnostic.severity}: line ${diagnostic.line}: ${diagnostic.message}`);
+  }
+  const label = rendered.labels[0];
+  writeFileSync(`${outDir}/model-${dpi}dpi-zpl.png`, encodePng(label.bitmap, { scale: 2 }));
+  console.log(`zpl ${dpi} dpi: ${label.bitmap.width}x${label.bitmap.height} dots`);
+}
 
 for (const dpi of [203, 300]) {
   const { source, issues } = generateTspl(document, { dpi });

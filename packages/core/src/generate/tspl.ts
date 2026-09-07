@@ -151,8 +151,9 @@ class Generator {
       const before = this.lines.length;
       this.element(element);
       // An element that could not be expressed writes no line and gets no
-      // origin, which is how a caller knows it is missing from the code.
-      if (this.lines.length > before) this.origins[element.id] = before + 1;
+      // origin, which is how a caller knows it is missing from the code. The
+      // line recorded is the last one written, which is the one that draws.
+      if (this.lines.length > before) this.origins[element.id] = this.lines.length;
     }
 
     this.lines.push(`PRINT ${Math.max(1, Math.round(this.options.copies ?? 1))},1`);

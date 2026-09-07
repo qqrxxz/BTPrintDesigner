@@ -44,6 +44,7 @@ resolutions and is the standing check that this holds.
 | `util/units` | Millimetre, inch and dot conversions for 203 / 300 / 600 dpi |
 | `barcode/*` | Code 128, Code 39, ITF, EAN, UPC, QR, Data Matrix, PDF417 — modules, not pictures |
 | `tspl/*` | TSPL parser and interpreter: printer commands in, label image out |
+| `zpl/*` | ZPL II parser and interpreter, checked against Labelary |
 | `model/*` | The label document: language-neutral, millimetres, placeholders |
 | `generate/*` | Document to printer code; the only place that knows about dots |
 | `import/*` | Printer code back to a document, and an honest answer about whether it fits |
@@ -65,6 +66,31 @@ staircase of bars.
 The preview path is document to code to image, never document to image. The
 picture on screen is therefore rasterised from the same text that reaches the
 printer.
+
+## ZPL, and the only external reference there is
+
+Labelary renders ZPL, which makes ZPL the one language this project can be held
+to an outside standard. The reference images live in `test/golden` and are
+fetched once by `tools/fetch-labelary.mjs`, so the tests need no network.
+
+Thirteen samples have to match dot for dot: boxes, circles, Code 128 at two
+module widths, Code 39, ITF, EAN-13 at three module widths, Data Matrix and a QR
+code. Every sample that cannot match says why in its own note, and its tolerance
+sits just above what is observed so a regression still fails.
+
+Three things differ and none is a defect. Labelary anti-aliases curves and
+slopes where a thermal head cannot. QR mask selection and PDF417 compaction are
+encoder choices rather than fixed by the standard, so where ours differs the
+test decodes the symbol instead. And resident fonts are substituted by design.
+
+Holding the two side by side found real errors that no round trip would have:
+`^GD` measures its thickness across the row rather than perpendicular to the
+stroke, which made every diagonal twice as thick; a rounded `^GB` follows the
+curve with its border rather than being a square box with the corners rubbed
+out; EAN guard bars run past the others by a fixed thirteen dots at 203 dpi
+rather than by five modules; and `^BC` in its default mode stays in Code 128's
+subset B however many digits it is given, so a preview that packed them into
+subset C would show a barcode narrower than the printer's.
 
 ## Linked and detached
 
@@ -122,12 +148,13 @@ a dot disappear. The size ladder in the sample label shows where that happens.
 ## Commands
 
 ```
-npm test         # 528 tests: raster, barcodes, TSPL, model, generator, importer
+npm test         # 611 tests: raster, barcodes, TSPL, ZPL, model, generators, importers
 npm run build    # type declarations and JS into dist/
 npm run sample   # renders out/sample-{203,300,600}dpi.png and the barcode sheet
 npm run tspl     # renders the built-in TSPL sample, or a file you name
 npm run model    # document -> TSPL -> image, all three written to out/
 npm run import   # TSPL -> document; reports linked or detached and why
+node tools/fetch-labelary.mjs   # refresh the ZPL reference images
 ```
 
 ## Fonts

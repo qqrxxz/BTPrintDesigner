@@ -1,13 +1,17 @@
 import {
   Font,
   generateTspl,
+  generateZpl,
   importTspl,
+  importZpl,
   renderTspl,
+  renderZpl,
   type Bitmap1,
   type CommandBounds,
   type Diagnostic,
   type GenerationIssue,
   type LabelDocument,
+  type PrinterLanguage,
   type PrinterProfile,
   type TsplFontSet,
   type TsplImportResult,
@@ -52,16 +56,75 @@ function blank(): Bitmap1 {
   throw new Error('fonts are not loaded yet');
 }
 
+/**
+ * The language a profile speaks.
+ *
+ * A printer's own language is the first one it lists, and choosing the printer
+ * is how the designer chooses the dialect: picking a Zebra and being handed
+ * TSPL would be a bug, not a preference.
+ */
+export function languageOf(profile: PrinterProfile): PrinterLanguage {
+  return profile.languages[0] ?? 'tspl';
+}
+
+export function generateFor(
+  profile: PrinterProfile,
+  document: LabelDocument,
+): { source: string; issues: Preview['issues']; origins: Preview['origins'] } {
+  return languageOf(profile) === 'zpl'
+    ? generateZpl(document, { dpi: profile.dpi })
+    : generateTspl(document, { dpi: profile.dpi });
+}
+
+export function renderFor(
+  profile: PrinterProfile,
+  code: string,
+  fontSet: TsplFontSet,
+  size: { widthMm: number; heightMm: number },
+): { bitmap: Bitmap1; bounds: Preview['bounds']; diagnostics: Preview['diagnostics'] } {
+  if (languageOf(profile) === 'zpl') {
+    const perMm = profile.dpi / 25.4;
+    const rendered = renderZpl(code, {
+      fonts: fontSet,
+      dpi: profile.dpi,
+      // ZPL counts in dots and a job need not declare its size, so the label
+      // the designer set is the fallback.
+      defaultWidthDots: Math.round(size.widthMm * perMm),
+      defaultHeightDots: Math.round(size.heightMm * perMm),
+    });
+    return {
+      bitmap: rendered.labels[0]?.bitmap ?? blank(),
+      bounds: rendered.bounds,
+      diagnostics: rendered.diagnostics,
+    };
+  }
+  const rendered = renderTspl(code, { fonts: fontSet, dpi: profile.dpi });
+  return {
+    bitmap: rendered.labels[0]?.bitmap ?? blank(),
+    bounds: rendered.bounds,
+    diagnostics: rendered.diagnostics,
+  };
+}
+
+export function importFor(profile: PrinterProfile, code: string): TsplImportResult {
+  return languageOf(profile) === 'zpl'
+    ? importZpl(code, { dpi: profile.dpi })
+    : importTspl(code, { dpi: profile.dpi });
+}
+
 export function previewFromDocument(
   document: LabelDocument,
   profile: PrinterProfile,
   fontSet: TsplFontSet,
 ): Preview {
-  const generated = generateTspl(document, { dpi: profile.dpi });
-  const rendered = renderTspl(generated.source, { fonts: fontSet, dpi: profile.dpi });
+  const generated = generateFor(profile, document);
+  const rendered = renderFor(profile, generated.source, fontSet, {
+    widthMm: document.width,
+    heightMm: document.height,
+  });
   return {
     code: generated.source,
-    bitmap: rendered.labels[0]?.bitmap ?? blank(),
+    bitmap: rendered.bitmap,
     bounds: rendered.bounds,
     origins: generated.origins,
     diagnostics: rendered.diagnostics,
@@ -78,9 +141,10 @@ export function previewFromCode(
   code: string,
   profile: PrinterProfile,
   fontSet: TsplFontSet,
+  size: { widthMm: number; heightMm: number },
 ): CodePreview {
-  const rendered = renderTspl(code, { fonts: fontSet, dpi: profile.dpi });
-  const imported = importTspl(code, { dpi: profile.dpi });
+  const rendered = renderFor(profile, code, fontSet, size);
+  const imported = importFor(profile, code);
   // Line numbers in the source are what tie an element to its outline, and the
   // importer records exactly that.
   const origins: Record<string, number> = {};
@@ -89,7 +153,7 @@ export function previewFromCode(
   return {
     preview: {
       code,
-      bitmap: rendered.labels[0]?.bitmap ?? blank(),
+      bitmap: rendered.bitmap,
       bounds: rendered.bounds,
       origins,
       diagnostics: rendered.diagnostics,
