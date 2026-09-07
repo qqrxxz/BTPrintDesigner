@@ -261,7 +261,9 @@ export const DATAMOBILE_VARIABLES: readonly DataMobileVariable[] = [
   variable('@Now@', 'document', ['doc', 'upl'], '07.09.2026 14:20', 'Текущие дата и время', 'Now'),
   variable('@Number@', 'document', ['doc', 'upl'], 'ПР-000123', 'Номер', 'Number'),
   variable('@Name@', 'document', ['doc'], 'Приёмка товара', 'Наименование', 'Name'),
-  variable('@DocBarcode@', 'document', ['doc'], 'ПР-000123', 'Штрихкод документа', 'Document barcode'),
+  // The sample is deliberately ASCII: this one is printed as a barcode, and
+  // Code 128 cannot hold a Cyrillic document number.
+  variable('@DocBarcode@', 'document', ['doc'], 'PR-000123', 'Штрихкод документа', 'Document barcode'),
   variable('@QRData@', 'document', ['doc'], '4006381333931\n4006381333948', 'Журнал сканирований', 'Scanning log'),
   variable('@PlaceQtySelect@', 'document', ['doc'], '12', 'Мест по плану', 'Places planned'),
   variable('@PlaceQtyInsert@', 'document', ['doc'], '12', 'Мест по факту', 'Places counted'),

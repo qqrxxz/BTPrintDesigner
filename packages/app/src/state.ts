@@ -56,6 +56,8 @@ export class Store {
   /** Document snapshots, for undo. The current document is the last entry. */
   private past: LabelDocument[] = [];
   private future: LabelDocument[] = [];
+  /** True while a drag is running, so its changes share one undo step. */
+  private gesture = false;
 
   constructor(document: LabelDocument = createDocument()) {
     const preferences = loadPreferences();
@@ -106,10 +108,24 @@ export class Store {
     this.emit();
   }
 
-  /** Changes the document and records the previous one for undo. */
-  edit(change: (document: LabelDocument) => LabelDocument): void {
-    this.past.push(this.state.document);
-    if (this.past.length > 100) this.past.shift();
+  /**
+   * Changes the document and records the previous one for undo.
+   *
+   * A gesture — dragging an element across the label — arrives as a stream of
+   * small changes, and undo should step over the whole drag rather than a
+   * hundred pixels of it. Pass `gesture: true` for every change but the first,
+   * and call `endGesture` when the pointer goes up.
+   */
+  edit(
+    change: (document: LabelDocument) => LabelDocument,
+    options: { gesture?: boolean } = {},
+  ): void {
+    const continuing = options.gesture === true && this.gesture;
+    this.gesture = options.gesture === true;
+    if (!continuing) {
+      this.past.push(this.state.document);
+      if (this.past.length > 100) this.past.shift();
+    }
     this.future = [];
     this.state = {
       ...this.state,
@@ -149,6 +165,11 @@ export class Store {
       filePath: options.filePath ?? this.state.filePath,
     };
     this.emit();
+  }
+
+  /** Ends a gesture, so the next change starts a new undo step. */
+  endGesture(): void {
+    this.gesture = false;
   }
 
   canUndo(): boolean {

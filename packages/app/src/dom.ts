@@ -65,8 +65,9 @@ export function select<T extends string>(
   value: T,
   options: readonly { value: T; label: string }[],
   onChange: (value: T) => void,
+  extra: Attributes = {},
 ): HTMLSelectElement {
-  const element = h('select');
+  const element = h('select', extra);
   for (const option of options) {
     const node = h('option', { value: option.value, selected: option.value === value }, option.label);
     element.append(node);

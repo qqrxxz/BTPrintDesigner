@@ -45,6 +45,9 @@ const RU: Readonly<Record<string, Template>> = {
     'печатается {dots} — то есть {actual} мм.',
   'generate.placeholder-missing':
     'Для плейсхолдера {{{name}}} нет значения; он печатается как есть.',
+  'generate.line-break-flattened':
+    'Команда {language} заканчивается вместе со строкой, поэтому переносы строк ' +
+    'в этом значении заменены пробелами.',
   'generate.variable-unknown':
     'В DataMobile нет переменной {name}; она напечатается как есть. ' +
     'Проверьте написание, включая заглавные буквы.',

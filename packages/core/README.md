@@ -47,6 +47,7 @@ resolutions and is the standing check that this holds.
 | `zpl/*` | ZPL II parser and interpreter, checked against Labelary |
 | `cpcl/*` | CPCL parser and interpreter |
 | `model/*` | The label document: language-neutral, millimetres, placeholders |
+| `model/presets` | What an editor puts on a label, configured for the operation and safe to draw |
 | `generate/*` | Document to printer code; the only place that knows about dots |
 | `import/*` | Printer code back to a document, and an honest answer about whether it fits |
 | `datamobile/variables` | The `@Name@` variables DataMobile substitutes at print time, and which operation offers which |

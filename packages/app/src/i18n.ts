@@ -21,11 +21,11 @@ export interface Strings {
   readonly printer: string;
   readonly language: string;
   readonly add: string;
-  readonly addText: string;
-  readonly addRectangle: string;
-  readonly addLine: string;
-  readonly addBarcode: string;
-  readonly addMatrix: string;
+  readonly kindText: string;
+  readonly kindRectangle: string;
+  readonly kindLine: string;
+  readonly kindBarcode: string;
+  readonly kindMatrix: string;
   readonly duplicate: string;
   readonly remove: string;
   readonly elements: string;
@@ -88,6 +88,9 @@ export interface Strings {
   readonly noVariables: string;
   readonly notForOperation: string;
   readonly unknownVariable: string;
+  readonly values: string;
+  readonly dragHint: string;
+  readonly replaceWithVariable: string;
 }
 
 const en: Strings = {
@@ -102,11 +105,11 @@ const en: Strings = {
   printer: 'Printer',
   language: 'Language',
   add: 'Add',
-  addText: 'Text',
-  addRectangle: 'Rectangle',
-  addLine: 'Line',
-  addBarcode: 'Barcode',
-  addMatrix: '2D code',
+  kindText: 'Text',
+  kindRectangle: 'Rectangle',
+  kindLine: 'Line',
+  kindBarcode: 'Barcode',
+  kindMatrix: '2D code',
   duplicate: 'Duplicate',
   remove: 'Delete',
   elements: 'Elements',
@@ -169,10 +172,13 @@ const en: Strings = {
   variables: 'DataMobile variables',
   variablesHint:
     'Written as @Name@. DataMobile fills them in at print time; the preview shows a sample so the width is realistic.',
-  insertVariable: 'Insert a variable',
+  insertVariable: 'Insert a variable…',
   noVariables: 'This label uses none.',
   notForOperation: 'not offered on this operation',
   unknownVariable: 'unknown to DataMobile',
+  values: 'Values',
+  dragHint: 'Drag to move. Arrow keys nudge by 0.1\u00a0mm, with Shift by 1\u00a0mm.',
+  replaceWithVariable: 'Replace with a variable…',
 };
 
 const ru: Strings = {
@@ -187,11 +193,11 @@ const ru: Strings = {
   printer: 'Принтер',
   language: 'Язык',
   add: 'Добавить',
-  addText: 'Текст',
-  addRectangle: 'Прямоугольник',
-  addLine: 'Линия',
-  addBarcode: 'Штрихкод',
-  addMatrix: '2D-код',
+  kindText: 'Текст',
+  kindRectangle: 'Прямоугольник',
+  kindLine: 'Линия',
+  kindBarcode: 'Штрихкод',
+  kindMatrix: '2D-код',
   duplicate: 'Дублировать',
   remove: 'Удалить',
   elements: 'Элементы',
@@ -254,10 +260,13 @@ const ru: Strings = {
   variables: 'Переменные DataMobile',
   variablesHint:
     'Пишутся как @Имя@. DataMobile подставляет их при печати; в превью показан образец, чтобы ширина была настоящей.',
-  insertVariable: 'Вставить переменную',
+  insertVariable: 'Вставить переменную…',
   noVariables: 'На этой этикетке их нет.',
   notForOperation: 'недоступна для этой операции',
   unknownVariable: 'DataMobile такой не знает',
+  values: 'Значения',
+  dragHint: 'Перетаскивайте мышью. Стрелки сдвигают на 0,1\u00a0мм, с Shift — на 1\u00a0мм.',
+  replaceWithVariable: 'Заменить переменной…',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

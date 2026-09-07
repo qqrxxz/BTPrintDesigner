@@ -132,6 +132,29 @@ class Generator {
   }
 
   /** Says that a symbol's declared size is a guess while a variable stands in it. */
+  /**
+   * A content string, escaped, with any line break reported and taken out.
+   *
+   * A TSPL command ends where its line does, so a value with a newline in it
+   * does not print on two lines — it leaves an unterminated string and a stray
+   * command behind it. DataMobile's scanning log is exactly such a value.
+   */
+  private quoted(text: string, element: LabelElement): string {
+    const flattened = text.replace(/\r\n|\r|\n/g, ' ');
+    if (flattened !== text) {
+      this.issues.push({
+        severity: 'warning',
+        elementId: element.id,
+        code: 'generate.line-break-flattened',
+        values: { language: 'TSPL' },
+        message:
+          'A TSPL command ends at the end of its line, so the line breaks in this ' +
+          'value were replaced with spaces.',
+      });
+    }
+    return quote(flattened);
+  }
+
   private warnAboutVariableSize(element: LabelElement, symbology: string): void {
     this.issues.push({
       severity: 'warning',
@@ -189,7 +212,7 @@ class Generator {
   }
 
   private text(element: TextElement): void {
-    const content = quote(this.resolve(element.content, element));
+    const content = this.quoted(this.resolve(element.content, element), element);
     const height = Math.max(1, this.dots(element.style.heightMm));
     const width = Math.max(1, Math.round(height * (element.style.widthScale ?? 1)));
     const alignment = element.align === 'center' ? 2 : element.align === 'right' ? 3 : 1;
@@ -289,7 +312,7 @@ class Generator {
     this.lines.push(
       `BARCODE ${this.dots(element.x)},${this.dots(element.y)},"${name}",${height},` +
         `${element.humanReadable ? 1 : 0},${element.rotation ?? 0},${narrow},${wide},` +
-        `"${quote(data)}"`,
+        `"${this.quoted(data, element)}"`,
     );
   }
 
@@ -302,7 +325,10 @@ class Generator {
 
     if (element.symbology === 'qr') {
       const level = element.errorCorrection ?? 'M';
-      this.lines.push(`QRCODE ${x},${y},${level},${module},A,${element.rotation ?? 0},"${quote(data)}"`);
+      this.lines.push(
+        `QRCODE ${x},${y},${level},${module},A,${element.rotation ?? 0},` +
+          `"${this.quoted(data, element)}"`,
+      );
       return;
     }
 
@@ -321,7 +347,8 @@ class Generator {
       if (element.symbology === 'datamatrix') {
         const symbol = encodeDataMatrix(resolved.sized);
         this.lines.push(
-          `DMATRIX ${x},${y},${symbol.width * module},${symbol.height * module},"${quote(data)}"`,
+          `DMATRIX ${x},${y},${symbol.width * module},${symbol.height * module},` +
+            `"${this.quoted(data, element)}"`,
         );
         return;
       }
@@ -340,7 +367,7 @@ class Generator {
       }
       this.lines.push(
         `PDF417 ${x},${y},${symbol.width * module},${symbol.height * rowHeight},` +
-          `${element.rotation ?? 0},${parts.join(',')},"${quote(data)}"`,
+          `${element.rotation ?? 0},${parts.join(',')},"${this.quoted(data, element)}"`,
       );
     } catch (error) {
       this.issues.push({

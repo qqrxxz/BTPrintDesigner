@@ -82,6 +82,9 @@ export {
   sampleFor,
   variablesFor,
 } from './datamobile/variables.js';
+export { findPreset, PRESET_GROUPS, PRESETS, presetsOf } from './model/presets.js';
+export type { Preset, PresetGroup } from './model/presets.js';
+
 export type {
   DataMobileOperation,
   DataMobileVariable,

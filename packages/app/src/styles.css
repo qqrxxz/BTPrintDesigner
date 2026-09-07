@@ -69,6 +69,14 @@ textarea:focus {
   outline-offset: -1px;
 }
 
+/* Keyboard focus is visible everywhere; a mouse click leaves no ring. */
+button:focus-visible,
+summary:focus-visible,
+.element-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 /* Toolbar ---------------------------------------------------------------- */
 
 .toolbar {
@@ -206,10 +214,15 @@ textarea:focus {
 .element-row {
   display: flex;
   gap: 8px;
+  width: 100%;
   padding: 4px 6px;
   border-radius: 4px;
   cursor: pointer;
   border: 1px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
 .element-row:hover {
@@ -255,6 +268,7 @@ textarea:focus {
 .field select,
 .field textarea {
   width: 100%;
+  font-variant-numeric: tabular-nums;
 }
 
 .field .content-area {
@@ -392,6 +406,110 @@ textarea:focus {
   margin-right: 6px;
 }
 
+/* Sections ---------------------------------------------------------------- */
+
+.section {
+  border-top: 1px solid var(--line);
+}
+
+.section > summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 0;
+  cursor: default;
+  list-style: none;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.section > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A disclosure triangle of our own, so it points the way the section opens. */
+.section > summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid currentColor;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  transition: transform 120ms ease;
+}
+
+.section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.section > summary:hover,
+.section > summary:focus-visible {
+  color: var(--text);
+}
+
+.section-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.badge {
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 0 6px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.section > *:not(summary) {
+  padding-bottom: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section > summary::before {
+    transition: none;
+  }
+}
+
+/* The add panel ----------------------------------------------------------- */
+
+.add-groups .section:first-of-type {
+  border-top: none;
+}
+
+.preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+button.preset {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.element-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.element-id {
+  color: var(--muted);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+}
+
+/* While a drag is running nothing on the page should select. */
+body.dragging {
+  user-select: none;
+  cursor: move;
+}
+
 /* DataMobile variables ---------------------------------------------------- */
 
 .variables li.info {
@@ -403,12 +521,21 @@ textarea:focus {
   color: var(--accent);
 }
 
-/* A field with the variable menu beneath it. */
-.with-picker {
+/*
+ * A field with the variable menu under it takes the whole width: the menu's
+ * entries are names like "@RowAttribute1Title@ — заголовок поля", and a column
+ * of a hundred and twenty pixels turns every one of them into an ellipsis.
+ */
+.field-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+}
+
+.field-group > .field {
+  grid-template-columns: 1fr;
+  gap: 4px;
 }
 
 .variable-picker {

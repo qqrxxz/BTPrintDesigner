@@ -188,8 +188,31 @@ class Generator {
     }
   }
 
+  /**
+   * A value with any line break reported and taken out.
+   *
+   * A CPCL text command runs to the end of its line, so a newline in the value
+   * does not print on two lines — it leaves the rest of the value behind as a
+   * command of its own. DataMobile's scanning log is exactly such a value.
+   */
+  private flattened(text: string, element: LabelElement): string {
+    const single = text.replace(/\r\n|\r|\n/g, ' ');
+    if (single !== text) {
+      this.issues.push({
+        severity: 'warning',
+        elementId: element.id,
+        code: 'generate.line-break-flattened',
+        values: { language: 'CPCL' },
+        message:
+          'A CPCL command ends at the end of its line, so the line breaks in this ' +
+          'value were replaced with spaces.',
+      });
+    }
+    return single;
+  }
+
   private text(element: TextElement): void {
-    const content = this.resolve(element.content, element);
+    const content = this.flattened(this.resolve(element.content, element), element);
     const height = Math.max(1, this.dots(element.style.heightMm));
     const x = this.dots(element.x);
     const y = this.dots(element.y);

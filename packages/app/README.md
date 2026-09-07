@@ -20,13 +20,26 @@ The printer chosen in the toolbar decides how many dots there are to the
 millimetre, and the design is stored in millimetres, so switching from a 203 dpi
 printer to a 600 dpi one recomputes the label rather than breaking it.
 
+## The left column
+
+Everything on the left is a section that folds away, and what is open stays open
+while the panels are rebuilt. The one at the top adds things: a kind at a time —
+text, barcodes, two-dimensional codes, shapes — where each entry arrives already
+configured, so a Code 128 added to a product template says `@Barcode@` and a
+wrapped block is a BLOCK rather than a TEXT with a box to tick.
+
+A new label is an empty sheet, 60 by 40 mm. A template is built for one
+operation on one printer, and a starter design is something to delete before the
+real work begins.
+
 ## DataMobile
 
 The label's properties carry the DataMobile operation the template is for, and
 every content field has a menu of the variables that operation offers — the
-names are the vendor's, spelt exactly, and picking one beats typing it. A new
-element arrives with the obvious variable already in it: a barcode added to a
-product label says `@Barcode@`.
+names are the vendor's, spelt exactly, and picking one beats typing it. In a
+barcode's data the choice replaces what was there, because half a value and half
+a variable is not a thing anyone wants; in running text it lands at the caret
+and the rest stays.
 
 The code panel and both exports show the template, with the variables still in
 it, because DataMobile is what fills them in. The preview shows a copy with

@@ -11,6 +11,8 @@ import {
   encodePng,
   parseDocument,
   PRINTER_PROFILES,
+  PRESET_GROUPS,
+  presetsOf,
   serializeDocument,
   substituteVariables,
   variablesFor,
@@ -19,6 +21,7 @@ import {
   type LabelDocument,
   type LabelElement,
   type MatrixElement,
+  type Preset,
   type RectangleElement,
   type TextElement,
   type TsplFontSet,
@@ -72,6 +75,13 @@ export class App {
   private codeArea = h('textarea', { class: 'code-area', spellcheck: 'false' });
   /** True while the code panel has focus, so a render does not fight the caret. */
   private editingCode = false;
+  /**
+   * Which sections the reader has opened or closed.
+   *
+   * The panels are rebuilt on every change, so without this the sections would
+   * snap back to their defaults the moment anything moved.
+   */
+  private readonly sectionOpen = new Map<string, boolean>();
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -233,16 +243,6 @@ export class App {
       ),
       h(
         'div',
-        { class: 'group' },
-        h('span', { class: 'group-label' }, text.add),
-        button(text.addText, () => this.addElement('text')),
-        button(text.addRectangle, () => this.addElement('rectangle')),
-        button(text.addLine, () => this.addElement('line')),
-        button(text.addBarcode, () => this.addElement('barcode')),
-        button(text.addMatrix, () => this.addElement('matrix')),
-      ),
-      h(
-        'div',
         { class: 'group grow' },
         h('span', { class: 'group-label' }, text.printer),
         select(
@@ -263,49 +263,102 @@ export class App {
     );
   }
 
-  private leftPanel(text: Strings, derived: Derived): HTMLElement {
+  /** A collapsible section, which remembers whether it was left open. */
+  private section(
+    id: string,
+    title: string,
+    body: HTMLElement,
+    defaultOpen: boolean,
+    badge?: string,
+  ): HTMLElement {
+    const box = h('details', { class: 'section', open: this.sectionOpen.get(id) ?? defaultOpen });
+    box.append(
+      h(
+        'summary',
+        {},
+        h('span', { class: 'section-title' }, title),
+        badge === undefined ? undefined : h('span', { class: 'badge' }, badge),
+      ),
+      body,
+    );
+    box.addEventListener('toggle', () => this.sectionOpen.set(id, box.open));
+    return box;
+  }
+
+  /**
+   * The things that can be put on a label, by kind.
+   *
+   * Each entry arrives configured — a Code 128 on a product template already
+   * says `@Barcode@` — so adding one is a single click rather than a click and
+   * then four fields.
+   */
+  private addPanel(text: Strings): HTMLElement {
+    const russian = this.store.get().language === 'ru';
+    const box = h('div', { class: 'add-groups' });
+    for (const group of PRESET_GROUPS) {
+      const row = h('div', { class: 'preset-row' });
+      for (const preset of presetsOf(group.id)) {
+        row.append(
+          button(russian ? preset.ru : preset.en, () => this.addPreset(preset), {
+            class: 'preset',
+          }),
+        );
+      }
+      box.append(
+        this.section(`add:${group.id}`, russian ? group.ru : group.en, row, group.id === 'text'),
+      );
+    }
+    return box;
+  }
+
+  private elementList(text: Strings): HTMLElement {
     const state = this.store.get();
     const list = h('div', { class: 'element-list' });
-
     if (state.document.elements.length === 0) {
       list.append(h('p', { class: 'empty' }, text.noElements));
+      return list;
     }
     for (const element of state.document.elements) {
       const row = h(
-        'div',
-        { class: `element-row${element.id === state.selectedId ? ' selected' : ''}` },
+        'button',
+        {
+          type: 'button',
+          class: `element-row${element.id === state.selectedId ? ' selected' : ''}`,
+        },
         h('span', { class: 'element-kind' }, elementLabel(element, text)),
         h('span', { class: 'element-name' }, describeElement(element)),
       );
       row.addEventListener('click', () => this.store.select(element.id));
       list.append(row);
     }
+    return list;
+  }
 
+  private leftPanel(text: Strings, derived: Derived): HTMLElement {
+    const problems = derived.problems.length;
     return h(
       'aside',
       { class: 'panel left' },
-      h('h2', {}, text.elements),
-      list,
-      h(
-        'div',
-        { class: 'row' },
-        button(text.duplicate, () => this.duplicate()),
-        button(text.remove, () => this.remove()),
+      h('h2', {}, text.add),
+      this.addPanel(text),
+      this.section('elements', text.elements, this.elementList(text), true),
+      this.section('properties', text.properties, this.elementProperties(text), true),
+      this.section('label', text.label, this.labelProperties(text), false),
+      this.section('values', text.values, this.valuesSection(text), false),
+      this.section(
+        'problems',
+        text.problems,
+        this.problems(text, derived),
+        problems > 0,
+        problems === 0 ? undefined : String(problems),
       ),
-      h('h2', {}, text.properties),
-      this.properties(text),
-      h('h2', {}, text.sampleData),
-      this.sampleData(text),
-      h('h2', {}, text.variables),
-      this.variables(text),
-      h('h2', {}, text.problems),
-      this.problems(text, derived),
     );
   }
 
   private centre(text: Strings, derived: Derived): HTMLElement {
     const state = this.store.get();
     clear(this.stage);
+    this.overlay.title = text.dragHint;
     this.stage.append(h('div', { class: 'label-frame' }, this.canvas, this.overlay));
     this.stage.onpointerdown = (event) => {
       const target = event.target as HTMLElement;
@@ -442,13 +495,17 @@ export class App {
    * The names are the vendor's and have to be spelt exactly, capitals and all,
    * so choosing one beats typing it.
    */
-  private variablePicker(text: Strings, insert: (name: string) => void): HTMLElement {
+  private variablePicker(
+    text: Strings,
+    insert: (name: string) => void,
+    prompt: string,
+  ): HTMLElement {
     const state = this.store.get();
     const russian = state.language === 'ru';
     const offered = variablesFor(state.document.operation ?? 'all');
 
     const menu = h('select', { class: 'variable-picker', title: text.variablesHint });
-    menu.append(h('option', { value: '', selected: true }, text.insertVariable));
+    menu.append(h('option', { value: '', selected: true }, prompt));
     for (const group of DATAMOBILE_GROUPS) {
       const mine = offered.filter((entry) => entry.group === group.id);
       if (mine.length === 0) continue;
@@ -466,19 +523,42 @@ export class App {
     return menu;
   }
 
-  /** A text field with the variable menu beside it, inserting at the caret. */
-  private withPicker(
+  /**
+   * A labelled field with the variable menu under it.
+   *
+   * A field that holds one value — a barcode's data — is replaced outright:
+   * half a barcode and half a variable is not a thing anyone wants, and the
+   * old value would have to be deleted by hand every time. Running text is
+   * different, so there the variable lands at the caret and the rest stays.
+   *
+   * The menu sits beside the label rather than inside it: one label names one
+   * control, and this is a second control with a job of its own.
+   */
+  private pickerField(
     text: Strings,
+    label: string,
     control: HTMLInputElement | HTMLTextAreaElement,
     commit: (value: string) => void,
+    mode: 'insert' | 'replace' = 'insert',
   ): HTMLElement {
-    const picker = this.variablePicker(text, (name) => {
-      const from = control.selectionStart ?? control.value.length;
-      const to = control.selectionEnd ?? from;
-      commit(control.value.slice(0, from) + name + control.value.slice(to));
-    });
-    return h('div', { class: 'with-picker' }, control, picker);
+    const prompt = mode === 'replace' ? text.replaceWithVariable : text.insertVariable;
+    const picker = this.variablePicker(
+      text,
+      (name) => {
+        if (mode === 'replace') {
+          commit(name);
+          return;
+        }
+        const from = control.selectionStart ?? control.value.length;
+        const to = control.selectionEnd ?? from;
+        commit(control.value.slice(0, from) + name + control.value.slice(to));
+      },
+      prompt,
+    );
+    picker.setAttribute('aria-label', prompt);
+    return h('div', { class: 'field-group' }, field(label, control), picker);
   }
+
 
   private sampleData(text: Strings): HTMLElement {
     const state = this.store.get();
@@ -506,12 +586,12 @@ export class App {
 
   // --- properties ---------------------------------------------------------
 
-  private properties(text: Strings): HTMLElement {
+  /** The label itself: what it is called, how big it is, what it is for. */
+  private labelProperties(text: Strings): HTMLElement {
     const state = this.store.get();
-    const container = h('div', { class: 'fields' });
-
-    container.append(
-      h('h3', {}, text.label),
+    return h(
+      'div',
+      { class: 'fields' },
       field(
         text.labelName,
         textInput(state.document.name, (value) =>
@@ -543,11 +623,25 @@ export class App {
               ...document,
               operation: value as DataMobileOperation,
             })),
+          { title: text.operationHint },
         ),
       ),
-      h('p', { class: 'hint' }, text.operationHint),
     );
+  }
 
+  /** The sample values and the DataMobile variables, which belong together. */
+  private valuesSection(text: Strings): HTMLElement {
+    return h(
+      'div',
+      {},
+      this.sampleData(text),
+      h('h3', {}, text.variables),
+      this.variables(text),
+    );
+  }
+
+  private elementProperties(text: Strings): HTMLElement {
+    const container = h('div', { class: 'fields' });
     const element = this.store.selected();
     if (!element) {
       container.append(h('p', { class: 'empty' }, text.nothingSelected));
@@ -559,9 +653,14 @@ export class App {
     };
 
     container.append(
-      h('h3', {}, elementLabel(element, text)),
-      field(`X, mm`, numberInput(element.x, (value) => update((e) => ({ ...e, x: value })))),
-      field(`Y, mm`, numberInput(element.y, (value) => update((e) => ({ ...e, y: value })))),
+      h(
+        'div',
+        { class: 'element-head' },
+        h('span', { class: 'element-kind' }, elementLabel(element, text)),
+        h('span', { class: 'element-id' }, element.id),
+      ),
+      field('X, mm', numberInput(element.x, (value) => update((e) => ({ ...e, x: value })))),
+      field('Y, mm', numberInput(element.y, (value) => update((e) => ({ ...e, y: value })))),
       field(
         text.rotation,
         select(
@@ -590,6 +689,14 @@ export class App {
     if (element.type === 'barcode') this.barcodeProperties(container, text, element, update);
     if (element.type === 'matrix') this.matrixProperties(container, text, element, update);
 
+    container.append(
+      h(
+        'div',
+        { class: 'row' },
+        button(text.duplicate, () => this.duplicate()),
+        button(text.remove, () => this.remove()),
+      ),
+    );
     return container;
   }
 
@@ -606,11 +713,8 @@ export class App {
     );
 
     container.append(
-      field(
-        text.content,
-        this.withPicker(text, content, (value) =>
-          update((e) => ({ ...(e as TextElement), content: value })),
-        ),
+      this.pickerField(text, text.content, content, (value) =>
+        update((e) => ({ ...(e as TextElement), content: value })),
       ),
       field(
         `${text.textHeight}, mm`,
@@ -752,15 +856,14 @@ export class App {
           (value) => update((e) => ({ ...(e as BarcodeElement), symbology: value })),
         ),
       ),
-      field(
+      this.pickerField(
+        text,
         text.data,
-        this.withPicker(
-          text,
-          textInput(element.data, (value) =>
-            update((e) => ({ ...(e as BarcodeElement), data: value })),
-          ),
-          (value) => update((e) => ({ ...(e as BarcodeElement), data: value })),
+        textInput(element.data, (value) =>
+          update((e) => ({ ...(e as BarcodeElement), data: value })),
         ),
+        (value) => update((e) => ({ ...(e as BarcodeElement), data: value })),
+        'replace',
       ),
       field(
         `${text.moduleWidth}, mm`,
@@ -800,15 +903,14 @@ export class App {
           (value) => update((e) => ({ ...(e as MatrixElement), symbology: value })),
         ),
       ),
-      field(
+      this.pickerField(
+        text,
         text.data,
-        this.withPicker(
-          text,
-          textInput(element.data, (value) =>
-            update((e) => ({ ...(e as MatrixElement), data: value })),
-          ),
-          (value) => update((e) => ({ ...(e as MatrixElement), data: value })),
+        textInput(element.data, (value) =>
+          update((e) => ({ ...(e as MatrixElement), data: value })),
         ),
+        (value) => update((e) => ({ ...(e as MatrixElement), data: value })),
+        'replace',
       ),
       field(
         `${text.moduleWidth}, mm`,
@@ -897,6 +999,14 @@ export class App {
     return Math.max(0.5, Math.min(8, fit));
   }
 
+  /**
+   * Moves an element by dragging its outline across the preview.
+   *
+   * The listeners go on the window rather than on the outline, because the
+   * first move redraws the panels and the outline under the pointer is thrown
+   * away and built again — a handler attached to it, capture and all, would
+   * die with it after a single pixel.
+   */
   private startDrag(event: PointerEvent, element: LabelElement, scale: number): void {
     event.preventDefault();
     this.store.select(element.id);
@@ -906,36 +1016,44 @@ export class App {
     const startY = event.clientY;
     const originX = element.x;
     const originY = element.y;
-    const target = event.currentTarget as HTMLElement;
-    target.setPointerCapture(event.pointerId);
+    document.body.classList.add('dragging');
 
     const move = (moveEvent: PointerEvent): void => {
       const deltaX = (moveEvent.clientX - startX) / scale / dotsPerMm;
       const deltaY = (moveEvent.clientY - startY) / scale / dotsPerMm;
       const round = (value: number): number => Math.round(value * 10) / 10;
-      this.store.edit((document) =>
-        replaceElement(document, element.id, (current) => {
-          const next = { ...current, x: round(originX + deltaX), y: round(originY + deltaY) };
-          if (current.type === 'line') {
-            // A line moves as a whole, so its far end travels with it.
-            return {
-              ...next,
-              x2: round(current.x2 + (next.x - current.x)),
-              y2: round(current.y2 + (next.y - current.y)),
-            } as LabelElement;
-          }
-          return next as LabelElement;
-        }),
+      this.store.edit(
+        (label) =>
+          replaceElement(label, element.id, (current) => {
+            const next = { ...current, x: round(originX + deltaX), y: round(originY + deltaY) };
+            if (current.type === 'line') {
+              // A line moves as a whole, so its far end travels with it.
+              return {
+                ...next,
+                x2: round(current.x2 + (next.x - current.x)),
+                y2: round(current.y2 + (next.y - current.y)),
+              } as LabelElement;
+            }
+            return next as LabelElement;
+          }),
+        // The whole drag is one undo step, not one per pixel: the store
+        // records the position the drag started from and nothing after it.
+        { gesture: true },
       );
     };
 
     const end = (): void => {
-      target.removeEventListener('pointermove', move);
-      target.removeEventListener('pointerup', end);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      document.body.classList.remove('dragging');
+      this.store.endGesture();
     };
-    target.addEventListener('pointermove', move);
-    target.addEventListener('pointerup', end);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
   }
+
 
   private keyboard(event: KeyboardEvent): void {
     const inField =
@@ -1005,14 +1123,14 @@ export class App {
 
   // --- elements -----------------------------------------------------------
 
-  private addElement(type: LabelElement['type']): void {
+  private addPreset(preset: Preset): void {
     this.store.edit((document) => {
-      const id = nextElementId(document, type.slice(0, 1));
-      const element = newElement(type, id, document);
-      return { ...document, elements: [...document.elements, element] };
+      const id = nextElementId(document, preset.prefix);
+      // New elements come down the label rather than on top of each other.
+      const at = { x: 4, y: Math.min(document.height - 8, 4 + document.elements.length * 6) };
+      return { ...document, elements: [...document.elements, preset.make(id, at, document)] };
     });
-    const document_ = this.store.get().document;
-    this.store.select(document_.elements.at(-1)?.id);
+    this.store.select(this.store.get().document.elements.at(-1)?.id);
   }
 
   private duplicate(): void {
@@ -1104,15 +1222,15 @@ export class App {
 function elementLabel(element: LabelElement, text: Strings): string {
   switch (element.type) {
     case 'text':
-      return text.addText;
+      return text.kindText;
     case 'rectangle':
-      return text.addRectangle;
+      return text.kindRectangle;
     case 'line':
-      return text.addLine;
+      return text.kindLine;
     case 'barcode':
-      return text.addBarcode;
+      return text.kindBarcode;
     case 'matrix':
-      return text.addMatrix;
+      return text.kindMatrix;
   }
 }
 
@@ -1125,68 +1243,17 @@ function describeElement(element: LabelElement): string {
   return `${element.x},${element.y} → ${element.x2},${element.y2}`;
 }
 
-function newElement(type: LabelElement['type'], id: string, document: LabelDocument): LabelElement {
-  const x = 4;
-  const y = Math.min(document.height - 8, 4 + document.elements.length * 6);
-  // On a template tied to an operation, the obvious variable beats a stub: a
-  // barcode on a product label is the product's barcode virtually every time.
-  const preset = (kind: 'text' | 'barcode' | 'matrix', fallback: string): string =>
-    defaultContent(kind, document.operation) ?? fallback;
-  switch (type) {
-    case 'text':
-      return { id, type: 'text', x, y, content: preset('text', 'Text'), style: { heightMm: 3 } };
-    case 'rectangle':
-      return { id, type: 'rectangle', x, y, width: 20, height: 10, fill: 'outline', lineWidth: 0.3 };
-    case 'line':
-      return { id, type: 'line', x, y, x2: Math.min(document.width - 4, x + 30), y2: y, thickness: 0.4 };
-    case 'barcode':
-      return {
-        id,
-        type: 'barcode',
-        x,
-        y,
-        symbology: 'code128',
-        data: preset('barcode', '4820-117-A'),
-        moduleWidth: 0.25,
-        height: 10,
-        humanReadable: true,
-      };
-    case 'matrix':
-      return {
-        id,
-        type: 'matrix',
-        x,
-        y,
-        symbology: 'qr',
-        data: preset('matrix', 'https://example.com'),
-        moduleWidth: 0.5,
-      };
-  }
-}
-
-/** A label with something on it, so the first window is not an empty sheet. */
+/**
+ * The label a new window, and the "new" command, start from.
+ *
+ * Empty on purpose: a template is built for one operation and one printer, and
+ * a starter design is something to delete before the real work begins.
+ */
 function starterDocument(): LabelDocument {
   return createDocument({
     name: 'Label',
     width: 60,
     height: 40,
     gap: { height: 2, offset: 0 },
-    sampleData: { sku: '4820-117-A' },
-    elements: [
-      { id: 'r1', type: 'rectangle', x: 1, y: 1, width: 58, height: 38, fill: 'outline', lineWidth: 0.4, cornerRadius: 1.5 },
-      { id: 't1', type: 'text', x: 30, y: 4, content: 'SKU {{sku}}', align: 'center', style: { heightMm: 4 } },
-      {
-        id: 'b1',
-        type: 'barcode',
-        x: 4,
-        y: 14,
-        symbology: 'code128',
-        data: '{{sku}}',
-        moduleWidth: 0.25,
-        height: 12,
-        humanReadable: true,
-      },
-      { id: 'm1', type: 'matrix', x: 40, y: 14, symbology: 'qr', data: 'https://example.com/p/{{sku}}', moduleWidth: 0.45 },
-    ],
   });
 }
