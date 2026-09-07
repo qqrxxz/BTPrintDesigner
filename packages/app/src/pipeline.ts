@@ -1,9 +1,12 @@
 import {
   Font,
+  generateCpcl,
   generateTspl,
   generateZpl,
+  importCpcl,
   importTspl,
   importZpl,
+  renderCpcl,
   renderTspl,
   renderZpl,
   type Bitmap1,
@@ -71,9 +74,15 @@ export function generateFor(
   profile: PrinterProfile,
   document: LabelDocument,
 ): { source: string; issues: Preview['issues']; origins: Preview['origins'] } {
-  return languageOf(profile) === 'zpl'
-    ? generateZpl(document, { dpi: profile.dpi })
-    : generateTspl(document, { dpi: profile.dpi });
+  const options = { dpi: profile.dpi };
+  switch (languageOf(profile)) {
+    case 'zpl':
+      return generateZpl(document, options);
+    case 'cpcl':
+      return generateCpcl(document, options);
+    default:
+      return generateTspl(document, options);
+  }
 }
 
 export function renderFor(
@@ -82,8 +91,25 @@ export function renderFor(
   fontSet: TsplFontSet,
   size: { widthMm: number; heightMm: number },
 ): { bitmap: Bitmap1; bounds: Preview['bounds']; diagnostics: Preview['diagnostics'] } {
-  if (languageOf(profile) === 'zpl') {
-    const perMm = profile.dpi / 25.4;
+  const language = languageOf(profile);
+  const perMm = profile.dpi / 25.4;
+
+  if (language === 'cpcl') {
+    // CPCL counts in dots and takes its height from the job header, so the
+    // designed width is the fallback the interpreter needs.
+    const rendered = renderCpcl(code, {
+      fonts: fontSet,
+      dpi: profile.dpi,
+      defaultWidthDots: Math.round(size.widthMm * perMm),
+    });
+    return {
+      bitmap: rendered.labels[0]?.bitmap ?? blank(),
+      bounds: rendered.bounds,
+      diagnostics: rendered.diagnostics,
+    };
+  }
+
+  if (language === 'zpl') {
     const rendered = renderZpl(code, {
       fonts: fontSet,
       dpi: profile.dpi,
@@ -107,9 +133,15 @@ export function renderFor(
 }
 
 export function importFor(profile: PrinterProfile, code: string): TsplImportResult {
-  return languageOf(profile) === 'zpl'
-    ? importZpl(code, { dpi: profile.dpi })
-    : importTspl(code, { dpi: profile.dpi });
+  const options = { dpi: profile.dpi };
+  switch (languageOf(profile)) {
+    case 'zpl':
+      return importZpl(code, options);
+    case 'cpcl':
+      return importCpcl(code, options);
+    default:
+      return importTspl(code, options);
+  }
 }
 
 export function previewFromDocument(

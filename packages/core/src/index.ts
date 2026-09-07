@@ -69,6 +69,17 @@ export type { DrawTextOptions, TextAnchor, TextMetrics, TextStyle } from './text
 
 export * from './tspl/index.js';
 
+export { numberAt, parseCpcl, tailFrom, wordAt } from './cpcl/parse.js';
+export type { CpclCommand, CpclParseResult } from './cpcl/parse.js';
+export { renderCpcl } from './cpcl/execute.js';
+export type { CpclLabel, CpclRenderOptions, CpclRenderResult } from './cpcl/execute.js';
+export { DEFAULT_SIZE_LADDER, resolveCpclFont, SIZE_IS_HEIGHT_FROM } from './cpcl/fonts.js';
+export type { CpclFontOptions, CpclFontSet, ResolvedCpclFont } from './cpcl/fonts.js';
+export { generateCpcl } from './generate/cpcl.js';
+export type { CpclGenerateOptions, CpclGenerateResult } from './generate/cpcl.js';
+export { importCpcl } from './import/cpcl.js';
+export type { CpclImportOptions, CpclImportResult } from './import/cpcl.js';
+
 export { parseZpl, letterParameter, numberParameter } from './zpl/parse.js';
 export type { ZplCommand, ZplParseResult, ZplPrefix } from './zpl/parse.js';
 export { renderZpl } from './zpl/execute.js';

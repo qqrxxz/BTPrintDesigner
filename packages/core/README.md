@@ -45,6 +45,7 @@ resolutions and is the standing check that this holds.
 | `barcode/*` | Code 128, Code 39, ITF, EAN, UPC, QR, Data Matrix, PDF417 — modules, not pictures |
 | `tspl/*` | TSPL parser and interpreter: printer commands in, label image out |
 | `zpl/*` | ZPL II parser and interpreter, checked against Labelary |
+| `cpcl/*` | CPCL parser and interpreter |
 | `model/*` | The label document: language-neutral, millimetres, placeholders |
 | `generate/*` | Document to printer code; the only place that knows about dots |
 | `import/*` | Printer code back to a document, and an honest answer about whether it fits |
@@ -91,6 +92,22 @@ out; EAN guard bars run past the others by a fixed thirteen dots at 203 dpi
 rather than by five modules; and `^BC` in its default mode stays in Code 128's
 subset B however many digits it is given, so a preview that packed them into
 subset C would show a barcode narrower than the printer's.
+
+## CPCL, and the one table this project cannot verify
+
+CPCL is the third language and the narrowest: no white shape to erase with, no
+rounded corners on a box, no text block that wraps. Each of those is reported by
+the generator with what to do instead rather than quietly approximated.
+
+Its font table is the one piece of this project with no way to check it. CPCL
+names a font and a size index rather than a height, the heights those indices
+stand for vary between printer families, and there is no public renderer to hold
+it against the way Labelary holds ZPL. The default ladder in `cpcl/fonts.ts` is
+therefore a reasonable guess and is documented as one — it can be replaced
+through `fontOptions.sizeLadders` without touching any code, which is how a
+CPCL preview is made exact by someone with the printer on the desk. One rule
+sidesteps the table for most real files: a size of nine or more is read as a
+height in dots, which is how the scalable font is used.
 
 ## Linked and detached
 
@@ -148,7 +165,7 @@ a dot disappear. The size ladder in the sample label shows where that happens.
 ## Commands
 
 ```
-npm test         # 611 tests: raster, barcodes, TSPL, ZPL, model, generators, importers
+npm test         # 656 tests: raster, barcodes, TSPL, ZPL, CPCL, model, generators, importers
 npm run build    # type declarations and JS into dist/
 npm run sample   # renders out/sample-{203,300,600}dpi.png and the barcode sheet
 npm run tspl     # renders the built-in TSPL sample, or a file you name

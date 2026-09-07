@@ -11,8 +11,10 @@ import {
   createDocument,
   encodePng,
   Font,
+  generateCpcl,
   generateTspl,
   generateZpl,
+  renderCpcl,
   renderTspl,
   renderZpl,
   serializeDocument,
@@ -112,6 +114,28 @@ const document = createDocument({
 const outDir = fileURLToPath(new URL('../out', import.meta.url));
 mkdirSync(outDir, { recursive: true });
 writeFileSync(`${outDir}/model.btpd.json`, serializeDocument(document));
+
+// The same document in the third language. CPCL is the narrowest of them, and
+// what it cannot say is reported rather than approximated.
+{
+  const dpi = 203;
+  const { source, issues } = generateCpcl(document, { dpi });
+  for (const issue of issues) {
+    console.log(`cpcl ${issue.severity}: ${issue.elementId ?? 'document'}: ${issue.message}`);
+  }
+  writeFileSync(`${outDir}/model-${dpi}dpi.cpcl`, source);
+  const rendered = renderCpcl(source, {
+    fonts,
+    dpi,
+    defaultWidthDots: Math.round(document.width * (dpi / 25.4)),
+  });
+  for (const diagnostic of rendered.diagnostics) {
+    console.log(`cpcl ${diagnostic.severity}: line ${diagnostic.line}: ${diagnostic.message}`);
+  }
+  const label = rendered.labels[0];
+  writeFileSync(`${outDir}/model-${dpi}dpi-cpcl.png`, encodePng(label.bitmap, { scale: 2 }));
+  console.log(`cpcl ${dpi} dpi: ${label.bitmap.width}x${label.bitmap.height} dots`);
+}
 
 // The same document in the other language, which is the point of keeping the
 // model language-neutral.
