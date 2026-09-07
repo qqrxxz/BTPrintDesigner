@@ -43,9 +43,22 @@ export interface TsplCommand {
 
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 
+/** Values a translated message substitutes into its own wording. */
+export type MessageValues = Readonly<Record<string, string | number>>;
+
 export interface Diagnostic {
   readonly severity: DiagnosticSeverity;
+  /**
+   * English wording, always present.
+   *
+   * A caller that speaks another language translates by `code` and falls back
+   * to this. Keeping the English here means a message is never blank just
+   * because nobody has translated it yet.
+   */
   readonly message: string;
+  /** Stable identifier for translation, absent on messages nobody translates. */
+  readonly code?: string;
+  readonly values?: MessageValues;
   readonly line: number;
   readonly column: number;
   readonly length: number;
@@ -153,6 +166,8 @@ export function parseTspl(source: string): ParseResult {
       diagnostics.push({
         severity: 'error',
         message: `Expected a command name, found "${trimmed.slice(0, 20)}"`,
+        code: 'parse.expected-command',
+        values: { text: trimmed.slice(0, 20) },
         line: lineNumber,
         column: leading + 1,
         length: trimmed.length,
@@ -185,6 +200,7 @@ export function parseTspl(source: string): ParseResult {
             diagnostics.push({
               severity: 'error',
               message: 'Unterminated string',
+              code: 'parse.unterminated-string',
               line: lineNumber,
               column: span.column,
               length: text.length,

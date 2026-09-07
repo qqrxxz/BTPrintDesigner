@@ -43,7 +43,10 @@ export interface UnmappedCommand {
   readonly line: number;
   readonly column: number;
   readonly source: string;
+  /** English wording; a caller translates by `code` and falls back to this. */
   readonly reason: string;
+  readonly code?: string;
+  readonly values?: Readonly<Record<string, string | number>>;
 }
 
 export type ImportMode = 'linked' | 'detached';
@@ -123,12 +126,19 @@ class Importer {
     return Math.round((dots / this.perMm) * 100) / 100;
   }
 
-  private reject(command: TsplCommand, reason: string): void {
+  private reject(
+    command: TsplCommand,
+    reason: string,
+    code?: string,
+    values?: UnmappedCommand['values'],
+  ): void {
     this.unmapped.push({
       line: command.span.line,
       column: command.span.column,
       source: command.source,
       reason,
+      ...(code === undefined ? {} : { code }),
+      ...(values === undefined ? {} : { values }),
     });
   }
 
@@ -173,6 +183,7 @@ class Importer {
       this.reject(
         command,
         'This job prints more than one label; the canvas holds a single design.',
+        'import.multiple-labels',
       );
       return;
     }
@@ -225,15 +236,21 @@ class Importer {
           this.preamble.push(command.source);
           return;
         }
-        this.reject(
-          command,
-          command.name === 'BITMAP' ||
-          command.name === 'PUTBMP' ||
-          command.name === 'PUTPCX' ||
-          command.name === 'DOWNLOAD'
-            ? 'Images are not part of the document model yet.'
-            : `The canvas has nothing that stands for ${command.name}.`,
-        );
+        {
+          const isImage =
+            command.name === 'BITMAP' ||
+            command.name === 'PUTBMP' ||
+            command.name === 'PUTPCX' ||
+            command.name === 'DOWNLOAD';
+          this.reject(
+            command,
+            isImage
+              ? 'Images are not part of the document model yet.'
+              : `The canvas has nothing that stands for ${command.name}.`,
+            isImage ? 'import.image' : 'import.unknown-command',
+            { command: command.name },
+          );
+        }
     }
   }
 
@@ -266,7 +283,9 @@ class Importer {
     const fixed = isBlock ? 8 : 6; // Arguments before the optional ones.
     const contentIndex = command.arguments.length - 1;
     if (contentIndex < fixed) {
-      this.reject(command, `${command.name} is incomplete.`);
+      this.reject(command, `${command.name} is incomplete.`, 'import.incomplete', {
+        command: command.name,
+      });
       return;
     }
 
@@ -274,7 +293,9 @@ class Importer {
     const y = this.numberAt(command, 1);
     const content = this.textAt(command, contentIndex);
     if (x === undefined || y === undefined || content === undefined) {
-      this.reject(command, `${command.name} is incomplete.`);
+      this.reject(command, `${command.name} is incomplete.`, 'import.incomplete', {
+        command: command.name,
+      });
       return;
     }
 
@@ -322,7 +343,9 @@ class Importer {
     const width = this.numberAt(command, 2);
     const height = this.numberAt(command, 3);
     if (x === undefined || y === undefined || width === undefined || height === undefined) {
-      this.reject(command, `${command.name} is incomplete.`);
+      this.reject(command, `${command.name} is incomplete.`, 'import.incomplete', {
+        command: command.name,
+      });
       return;
     }
     this.elements.push({
@@ -349,7 +372,7 @@ class Importer {
       bottom === undefined ||
       thickness === undefined
     ) {
-      this.reject(command, 'BOX is incomplete.');
+      this.reject(command, 'BOX is incomplete.', 'import.incomplete', { command: 'BOX' });
       return;
     }
     const radius = this.numberAt(command, 5) ?? 0;
@@ -382,13 +405,15 @@ class Importer {
       content === undefined ||
       contentIndex < 8
     ) {
-      this.reject(command, 'BARCODE is incomplete.');
+      this.reject(command, 'BARCODE is incomplete.', 'import.incomplete', { command: 'BARCODE' });
       return;
     }
 
     const mapped = SYMBOLOGIES[type.toUpperCase()];
     if (!mapped) {
-      this.reject(command, `The canvas does not offer a "${type}" barcode.`);
+      this.reject(command, `The canvas does not offer a "${type}" barcode.`, 'import.symbology', {
+        symbology: type,
+      });
       return;
     }
 
@@ -419,13 +444,13 @@ class Importer {
     const y = this.numberAt(command, 1);
     const content = this.textAt(command, contentIndex);
     if (x === undefined || y === undefined || content === undefined || contentIndex < 6) {
-      this.reject(command, 'QRCODE is incomplete.');
+      this.reject(command, 'QRCODE is incomplete.', 'import.incomplete', { command: 'QRCODE' });
       return;
     }
 
     for (const argument of command.arguments.slice(6, contentIndex)) {
       if (argument.kind === 'word' && /^M1$/i.test(argument.value)) {
-        this.reject(command, 'The canvas draws model 2 QR codes only.');
+        this.reject(command, 'The canvas draws model 2 QR codes only.', 'import.qr-model-1');
         return;
       }
     }
@@ -461,7 +486,7 @@ class Importer {
       height === undefined ||
       content === undefined
     ) {
-      this.reject(command, 'DMATRIX is incomplete.');
+      this.reject(command, 'DMATRIX is incomplete.', 'import.incomplete', { command: 'DMATRIX' });
       return;
     }
 
@@ -472,7 +497,9 @@ class Importer {
       const symbol = encodeDataMatrix(content);
       module = Math.max(1, Math.floor(Math.min(width / symbol.width, height / symbol.height)));
     } catch {
-      this.reject(command, 'This Data Matrix payload cannot be encoded.');
+      this.reject(command, 'This Data Matrix payload cannot be encoded.', 'import.encode-failed', {
+        symbology: 'Data Matrix',
+      });
       return;
     }
 
@@ -493,7 +520,7 @@ class Importer {
     const y = this.numberAt(command, 1);
     const content = this.textAt(command, contentIndex);
     if (x === undefined || y === undefined || content === undefined || contentIndex < 4) {
-      this.reject(command, 'PDF417 is incomplete.');
+      this.reject(command, 'PDF417 is incomplete.', 'import.incomplete', { command: 'PDF417' });
       return;
     }
 
@@ -504,7 +531,12 @@ class Importer {
       if (argument.kind !== 'word') continue;
       const match = /^([EWHCR])\s*(\d+)$/i.exec(argument.value);
       if (!match) {
-        this.reject(command, `The canvas does not carry the PDF417 option "${argument.value}".`);
+        this.reject(
+          command,
+          `The canvas does not carry the PDF417 option "${argument.value}".`,
+          'import.pdf417-option',
+          { option: argument.value },
+        );
         return;
       }
       const value = Number(match[2]);
@@ -512,7 +544,11 @@ class Importer {
       else if (match[1]!.toUpperCase() === 'C') columns = value;
       else if (match[1]!.toUpperCase() === 'E') level = value;
       else if (match[1]!.toUpperCase() === 'R') {
-        this.reject(command, 'A fixed PDF417 row count is not part of the document model.');
+        this.reject(
+          command,
+          'A fixed PDF417 row count is not part of the document model.',
+          'import.pdf417-rows',
+        );
         return;
       }
     }
@@ -522,7 +558,9 @@ class Importer {
         ...(columns === undefined ? {} : { columns }),
       });
     } catch {
-      this.reject(command, 'This PDF417 payload cannot be encoded.');
+      this.reject(command, 'This PDF417 payload cannot be encoded.', 'import.encode-failed', {
+        symbology: 'PDF417',
+      });
       return;
     }
 

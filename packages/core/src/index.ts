@@ -69,6 +69,16 @@ export type { DrawTextOptions, TextAnchor, TextMetrics, TextStyle } from './text
 
 export * from './tspl/index.js';
 
+export {
+  checkLabelWidth,
+  customProfile,
+  DEFAULT_PROFILE_ID,
+  findProfile,
+  PRINTER_PROFILES,
+  profilesForLanguage,
+} from './printer/profiles.js';
+export type { PrinterLanguage, PrinterProfile, WidthCheck } from './printer/profiles.js';
+
 export { createDocument, DOCUMENT_VERSION, elementBounds } from './model/document.js';
 export type {
   BarcodeElement,

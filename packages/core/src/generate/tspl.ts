@@ -37,13 +37,23 @@ export interface TsplGenerateOptions {
 
 export interface GenerationIssue {
   readonly severity: 'error' | 'warning';
+  /** English wording; a caller translates by `code` and falls back to this. */
   readonly message: string;
+  readonly code?: string;
+  readonly values?: Readonly<Record<string, string | number>>;
   readonly elementId?: string;
 }
 
 export interface TsplGenerateResult {
   readonly source: string;
   readonly issues: readonly GenerationIssue[];
+  /**
+   * The line each element was written to, one-based.
+   *
+   * This is what lets an editor tie a selection on the canvas to a line of
+   * code, and to the outline the renderer reports for that line.
+   */
+  readonly origins: Readonly<Record<string, number>>;
 }
 
 /** Below this the snap is invisible; above it the printed size really changes. */
@@ -69,6 +79,7 @@ const CHECK_DIGIT_NAMES: Partial<Record<BarcodeElement['symbology'], string>> = 
 class Generator {
   readonly lines: string[] = [];
   readonly issues: GenerationIssue[] = [];
+  readonly origins: Record<string, number> = {};
   private readonly perMm: number;
 
   constructor(
@@ -90,6 +101,14 @@ class Generator {
       this.issues.push({
         severity: 'warning',
         elementId: element.id,
+        code: 'generate.snapped',
+        values: {
+          what,
+          requested: mm.toFixed(3),
+          exact: exact.toFixed(2),
+          dots: snapped,
+          actual: (snapped / this.perMm).toFixed(3),
+        },
         message:
           `${what} of ${mm.toFixed(3)} mm is ${exact.toFixed(2)} dots on this printer and ` +
           `prints as ${snapped}, which is ${(snapped / this.perMm).toFixed(3)} mm.`,
@@ -104,6 +123,8 @@ class Generator {
       this.issues.push({
         severity: 'warning',
         elementId: element.id,
+        code: 'generate.placeholder-missing',
+        values: { name },
         message: `No value for placeholder {{${name}}}; it is printed as written.`,
       });
     }
@@ -126,7 +147,13 @@ class Generator {
     }
     this.lines.push('CLS');
 
-    for (const element of this.document.elements) this.element(element);
+    for (const element of this.document.elements) {
+      const before = this.lines.length;
+      this.element(element);
+      // An element that could not be expressed writes no line and gets no
+      // origin, which is how a caller knows it is missing from the code.
+      if (this.lines.length > before) this.origins[element.id] = before + 1;
+    }
 
     this.lines.push(`PRINT ${Math.max(1, Math.round(this.options.copies ?? 1))},1`);
   }
@@ -213,6 +240,7 @@ class Generator {
       this.issues.push({
         severity: 'error',
         elementId: element.id,
+        code: 'generate.diagonal-line',
         message:
           'TSPL has no diagonal line command, so this line cannot be printed. ' +
           'Make it horizontal or vertical, or move it to a ZPL job.',
@@ -293,6 +321,8 @@ class Generator {
       this.issues.push({
         severity: 'error',
         elementId: element.id,
+        code: 'generate.symbol-failed',
+        values: { symbology: element.symbology },
         message:
           error instanceof BarcodeError
             ? error.message
@@ -313,5 +343,9 @@ export function generateTspl(
 ): TsplGenerateResult {
   const generator = new Generator(document, options);
   generator.generate();
-  return { source: `${generator.lines.join('\n')}\n`, issues: generator.issues };
+  return {
+    source: `${generator.lines.join('\n')}\n`,
+    issues: generator.issues,
+    origins: generator.origins,
+  };
 }

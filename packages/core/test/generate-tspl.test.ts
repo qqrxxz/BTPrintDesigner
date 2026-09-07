@@ -368,3 +368,66 @@ describe('resolution', () => {
     }
   });
 });
+
+/**
+ * The canvas needs to know where an element landed, and only the renderer can
+ * say: the width of a line of text or a barcode depends on the value and the
+ * substitute face, not on anything the model holds.
+ */
+describe('element outlines', () => {
+  it('reports the line each element was written to', () => {
+    const { origins, source } = generate([
+      { id: 'r', type: 'rectangle', x: 1, y: 1, width: 10, height: 5, fill: 'solid' },
+      { id: 't', type: 'text', x: 2, y: 8, content: 'Cable', style: { heightMm: 3 } },
+    ]);
+    const lines = source.trimEnd().split('\n');
+    expect(lines[origins['r']! - 1]).toMatch(/^BAR /);
+    expect(lines[origins['t']! - 1]).toMatch(/^TEXT /);
+  });
+
+  it('gives no origin to an element the language cannot express', () => {
+    const { origins } = generate([
+      { id: 'd', type: 'line', x: 1, y: 1, x2: 20, y2: 15, thickness: 0.4 },
+    ]);
+    expect(origins['d']).toBeUndefined();
+  });
+
+  it('reports an outline for each drawn command, matching the design', () => {
+    const { source, origins } = generate([
+      { id: 'r', type: 'rectangle', x: 5, y: 5, width: 10, height: 5, fill: 'solid' },
+    ]);
+    const rendered = renderTspl(source, { fonts: fonts(), dpi: 203 });
+    const outline = rendered.bounds.find((entry) => entry.line === origins['r'])!;
+    expect(outline).toMatchObject({
+      x: dots(5),
+      y: dots(5),
+      width: dots(10),
+      height: dots(5),
+    });
+  });
+
+  it('measures text the model could not have measured', () => {
+    const { source, origins } = generate([
+      { id: 't', type: 'text', x: 4, y: 4, content: 'A much longer line', style: { heightMm: 3 } },
+    ]);
+    const rendered = renderTspl(source, { fonts: fonts(), dpi: 203 });
+    const outline = rendered.bounds.find((entry) => entry.line === origins['t'])!;
+    expect(outline.width).toBeGreaterThan(dots(15));
+    expect(outline.height).toBeCloseTo(dots(3), -1);
+  });
+
+  it('turns the outline with the text', () => {
+    const upright = generate([
+      { id: 't', type: 'text', x: 4, y: 4, content: 'Sideways', style: { heightMm: 3 } },
+    ]);
+    const turned = generate([
+      { id: 't', type: 'text', x: 4, y: 4, content: 'Sideways', style: { heightMm: 3 }, rotation: 90 },
+    ]);
+    const measure = (result: typeof upright) => {
+      const rendered = renderTspl(result.source, { fonts: fonts(), dpi: 203 });
+      return rendered.bounds.find((entry) => entry.line === result.origins['t'])!;
+    };
+    expect(measure(upright).width).toBeGreaterThan(measure(upright).height);
+    expect(measure(turned).height).toBeGreaterThan(measure(turned).width);
+  });
+});

@@ -47,11 +47,29 @@ export interface TsplLabel {
   readonly copies: number;
 }
 
+/**
+ * The area on the label a single command drew into.
+ *
+ * The document model cannot say how wide a line of text or a barcode will be —
+ * that depends on the substituted value and on the substitute face — so the
+ * only honest source for an element's outline is the renderer that just drew
+ * it. An editor needs these to put a selection box around something.
+ */
+export interface CommandBounds {
+  /** Line in the source, so a caller can match this to what it emitted. */
+  readonly line: number;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
 export interface TsplRenderResult {
   /** One entry per PRINT, or a single image if the source never prints. */
   readonly labels: readonly TsplLabel[];
   readonly diagnostics: readonly Diagnostic[];
   readonly commands: readonly TsplCommand[];
+  readonly bounds: readonly CommandBounds[];
 }
 
 const DEFAULT_LABEL_MM = { width: 60, height: 40 };
@@ -67,6 +85,8 @@ interface CommandContext {
 class Interpreter {
   readonly diagnostics: Diagnostic[] = [];
   readonly labels: TsplLabel[] = [];
+  readonly bounds: CommandBounds[] = [];
+  private current: TsplCommand | undefined;
 
   private readonly dpi: Dpi;
   private readonly fonts: TsplFontSet;
@@ -98,11 +118,19 @@ class Interpreter {
     this.bitmap = new Bitmap1(this.widthDots, this.heightDots);
   }
 
-  report(severity: Diagnostic['severity'], message: string, at: TsplCommand | TsplArgument): void {
+  report(
+    severity: Diagnostic['severity'],
+    message: string,
+    at: TsplCommand | TsplArgument,
+    code?: string,
+    values?: Diagnostic['values'],
+  ): void {
     const span = at.span;
     this.diagnostics.push({
       severity,
       message,
+      ...(code === undefined ? {} : { code }),
+      ...(values === undefined ? {} : { values }),
       line: span.line,
       column: span.column,
       length: span.end - span.start,
@@ -115,7 +143,13 @@ class Interpreter {
   private reportMissing(context: CommandContext, label: string): undefined {
     if (this.missingReported !== context.command) {
       this.missingReported = context.command;
-      this.report('error', `${context.command.name} is missing ${label}`, context.command);
+      this.report(
+        'error',
+        `${context.command.name} is missing ${label}`,
+        context.command,
+        'tspl.missing-argument',
+        { command: context.command.name, argument: label },
+      );
     }
     return undefined;
   }
@@ -128,7 +162,13 @@ class Interpreter {
     const argument = context.args[index];
     if (argument === undefined) return this.reportMissing(context, label);
     if (argument.kind !== 'number') {
-      this.report('error', `${label} must be a number, found "${argument.value}"`, argument);
+      this.report(
+        'error',
+        `${label} must be a number, found "${argument.value}"`,
+        argument,
+        'tspl.not-a-number',
+        { argument: label, found: String(argument.value) },
+      );
       return undefined;
     }
     return argument.value;
@@ -156,7 +196,13 @@ class Interpreter {
     const argument = context.args[index];
     if (argument === undefined) return this.reportMissing(context, label);
     if (argument.kind !== 'number') {
-      this.report('error', `${label} must be a measurement, found "${argument.value}"`, argument);
+      this.report(
+        'error',
+        `${label} must be a measurement, found "${argument.value}"`,
+        argument,
+        'tspl.not-a-measurement',
+        { argument: label, found: String(argument.value) },
+      );
       return undefined;
     }
     const unit = argument.unit ?? defaultUnit;
@@ -174,6 +220,8 @@ class Interpreter {
       'warning',
       `Rotation must be 0, 90, 180 or 270; ${argument.value} is treated as 0`,
       argument,
+      'tspl.bad-rotation',
+      { found: String(argument.value) },
     );
     return 0;
   }
@@ -200,6 +248,8 @@ class Interpreter {
         'error',
         `Label size ${width} by ${height} dots exceeds the ${this.maxDots} dot limit`,
         at,
+        'tspl.label-too-large',
+        { width, height, limit: this.maxDots },
       );
       return;
     }
@@ -210,7 +260,20 @@ class Interpreter {
 
   // --- command dispatch ----------------------------------------------------
 
+  /** Records the area a drawing command covered, for an editor to select on. */
+  private touch(x: number, y: number, width: number, height: number): void {
+    if (this.current === undefined || width <= 0 || height <= 0) return;
+    this.bounds.push({
+      line: this.current.span.line,
+      x: Math.round(x),
+      y: Math.round(y),
+      width: Math.round(width),
+      height: Math.round(height),
+    });
+  }
+
   execute(command: TsplCommand): void {
+    this.current = command;
     const context: CommandContext = { command, args: command.arguments };
     switch (command.name) {
       case 'SIZE':
@@ -277,11 +340,15 @@ class Interpreter {
           `${command.name} places an image, which this version does not render. ` +
             'The rest of the label is unaffected.',
           command,
+          'tspl.image-not-drawn',
+          { command: command.name },
         );
         return;
 
       default:
-        this.report('warning', `Unknown command "${command.name}"`, command);
+        this.report('warning', `Unknown command "${command.name}"`, command, 'tspl.unknown-command', {
+          command: command.name,
+        });
     }
   }
 
@@ -317,6 +384,7 @@ class Interpreter {
     const height = this.numberArg(context, 3, 'height');
     if (x === undefined || y === undefined || width === undefined || height === undefined) return;
     this.bitmap.fillRect(this.x(x), this.y(y), Math.round(width), Math.round(height));
+    this.touch(this.x(x), this.y(y), width, height);
   }
 
   private doBox(context: CommandContext): void {
@@ -350,6 +418,7 @@ class Interpreter {
     } else {
       strokeBox(this.bitmap, x, y, width, height, stroke.thickness);
     }
+    this.touch(x, y, width, height);
   }
 
   private doErase(context: CommandContext): void {
@@ -363,6 +432,7 @@ class Interpreter {
         this.bitmap.set(this.x(x) + column, this.y(y) + row, 0);
       }
     }
+    this.touch(this.x(x), this.y(y), width, height);
   }
 
   private doReverse(context: CommandContext): void {
@@ -372,6 +442,7 @@ class Interpreter {
     const height = this.numberArg(context, 3, 'height');
     if (x === undefined || y === undefined || width === undefined || height === undefined) return;
     this.bitmap.invertRect(this.x(x), this.y(y), Math.round(width), Math.round(height));
+    this.touch(this.x(x), this.y(y), width, height);
   }
 
   private doText(context: CommandContext): void {
@@ -394,7 +465,11 @@ class Interpreter {
     const alignment = contentIndex > 6 ? (this.numberArg(context, 6, 'alignment') ?? 1) : 1;
 
     const resolved = resolveFont(this.fonts, fontName, xMultiplier, yMultiplier);
-    if (resolved.warning) this.report('warning', resolved.warning, context.args[2]!);
+    if (resolved.warning) {
+      this.report('warning', resolved.warning, context.args[2]!, 'tspl.font-substituted', {
+        font: fontName,
+      });
+    }
 
     const width = measureText(content, resolved.style).width;
     const offset = alignment === 2 ? -width / 2 : alignment === 3 ? -width : 0;
@@ -402,6 +477,13 @@ class Interpreter {
       rotation,
       anchor: 'top-left',
     });
+    const turned = rotation === 90 || rotation === 270;
+    this.touch(
+      this.x(x) + offset,
+      this.y(y),
+      turned ? resolved.lineHeight : width,
+      turned ? width : resolved.lineHeight,
+    );
   }
 
   private doBlock(context: CommandContext): void {
@@ -438,7 +520,11 @@ class Interpreter {
     const alignment = optional[1]?.kind === 'number' ? optional[1].value : 1;
 
     const resolved = resolveFont(this.fonts, fontName, xMultiplier, yMultiplier);
-    if (resolved.warning) this.report('warning', resolved.warning, context.args[4]!);
+    if (resolved.warning) {
+      this.report('warning', resolved.warning, context.args[4]!, 'tspl.font-substituted', {
+        font: fontName,
+      });
+    }
 
     const lines = wrapText(content, width, (text) => measureText(text, resolved.style).width);
     const lineHeight = resolved.lineHeight + spacing;
@@ -450,6 +536,7 @@ class Interpreter {
           'warning',
           'BLOCK content is taller than the block; the overflow is not printed',
           context.command,
+          'tspl.block-overflow',
         );
         break;
       }
@@ -462,6 +549,7 @@ class Interpreter {
       });
       lineY += lineHeight;
     }
+    this.touch(this.x(x), this.y(y), width, height);
   }
 
   private doBarcode(context: CommandContext): void {
@@ -485,6 +573,18 @@ class Interpreter {
     if (content === undefined) return;
     const alignment = contentIndex > 8 ? (this.numberArg(context, 8, 'alignment') ?? 1) : 1;
 
+    if (!LINEAR_TYPES.has(type.toUpperCase())) {
+      // Our own refusal, not the encoder's, so it reads in the user's language.
+      this.report(
+        'error',
+        `Barcode type "${type}" is not supported yet`,
+        context.args[2]!,
+        'tspl.symbology-unsupported',
+        { symbology: type },
+      );
+      return;
+    }
+
     const ratio = Math.min(3, Math.max(2, Math.round(wide / Math.max(1, narrow))));
     let symbol: LinearSymbol;
     try {
@@ -496,6 +596,8 @@ class Interpreter {
           ? error.message
           : `Cannot encode a "${type}" barcode from "${content}"`,
         context.args[contentIndex]!,
+        'tspl.barcode-failed',
+        { symbology: type, data: content },
       );
       return;
     }
@@ -515,6 +617,7 @@ class Interpreter {
 
     const offset = alignment === 2 ? -turned.width / 2 : alignment === 3 ? -turned.width : 0;
     this.bitmap.blit(turned, this.x(x) + Math.round(offset), this.y(y));
+    this.touch(this.x(x) + offset, this.y(y), turned.width, turned.height);
   }
 
   private renderHumanReadable(text: string, barcodeWidth: number): Bitmap1 {
@@ -552,6 +655,7 @@ class Interpreter {
           'warning',
           'QR model 1 is not supported; the symbol is drawn as model 2',
           argument,
+          'tspl.qr-model-1',
         );
       }
     }
@@ -611,7 +715,9 @@ class Interpreter {
       if (argument.kind !== 'word') continue;
       const match = /^([EWHCR])\s*(\d+)$/i.exec(argument.value);
       if (!match) {
-        this.report('warning', `Unrecognised PDF417 option "${argument.value}"`, argument);
+        this.report('warning', `Unrecognised PDF417 option "${argument.value}"`, argument, 'tspl.pdf417-option', {
+          option: argument.value,
+        });
         continue;
       }
       const value = Number(match[2]);
@@ -687,6 +793,7 @@ class Interpreter {
       rotation,
     });
     this.bitmap.blit(rendered, this.x(x), this.y(y));
+    this.touch(this.x(x), this.y(y), rendered.width, rendered.height);
   }
 
   private doPrint(context: CommandContext): void {
@@ -727,6 +834,26 @@ function readLevel(argument: TsplArgument | undefined): ErrorCorrectionLevel | u
   const upper = text.toUpperCase();
   return upper === 'L' || upper === 'M' || upper === 'Q' || upper === 'H' ? upper : undefined;
 }
+
+/** Barcode names this interpreter knows, upper-cased as TSPL writes them. */
+const LINEAR_TYPES = new Set([
+  '128',
+  '128M',
+  'CODE128',
+  'EAN128',
+  'GS1-128',
+  '39',
+  '39C',
+  'EAN13',
+  'EAN8',
+  'UPCA',
+  'UPCE',
+  '25',
+  'I2OF5',
+  'ITF',
+  '25C',
+  'I2OF5C',
+]);
 
 function encodeLinear(type: string, content: string, ratio: 2 | 3): LinearSymbol {
   switch (type.toUpperCase()) {
@@ -855,5 +982,6 @@ export function renderTspl(source: string, options: TsplRenderOptions): TsplRend
       (a, b) => a.line - b.line || a.column - b.column,
     ),
     commands: parsed.commands,
+    bounds: interpreter.bounds,
   };
 }

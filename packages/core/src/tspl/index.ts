@@ -11,4 +11,9 @@ export type {
 export { emSizeForCell, INTERNAL_FONTS, resolveFont } from './fonts.js';
 export type { FontCell, ResolvedFont, TsplFontSet } from './fonts.js';
 export { renderTspl } from './execute.js';
-export type { TsplLabel, TsplRenderOptions, TsplRenderResult } from './execute.js';
+export type {
+  CommandBounds,
+  TsplLabel,
+  TsplRenderOptions,
+  TsplRenderResult,
+} from './execute.js';

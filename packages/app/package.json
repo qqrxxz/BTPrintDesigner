@@ -1,0 +1,29 @@
+{
+  "name": "@btpd/app",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Electron shell for BTPrintDesigner",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "npm run build:electron && concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build:renderer": "vite build",
+    "build": "npm run build:electron && npm run build:renderer",
+    "start": "npm run build && electron .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "dev:web": "vite",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@btpd/core": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.1",
+    "vitest": "^2.1.8"
+  }
+}
