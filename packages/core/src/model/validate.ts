@@ -1,4 +1,5 @@
 import type { Rotation } from '../bitmap/Bitmap1.js';
+import { DATAMOBILE_OPERATIONS, type DataMobileOperation } from '../datamobile/variables.js';
 import {
   DOCUMENT_VERSION,
   type LabelDocument,
@@ -43,6 +44,7 @@ const LINEAR_SYMBOLOGIES: readonly LinearSymbology[] = [
 ];
 const MATRIX_SYMBOLOGIES: readonly MatrixSymbology[] = ['qr', 'datamatrix', 'pdf417'];
 const ALIGNMENTS: readonly TextAlignment[] = ['left', 'center', 'right'];
+const OPERATIONS: readonly DataMobileOperation[] = DATAMOBILE_OPERATIONS.map((entry) => entry.id);
 
 class Reader {
   readonly issues: ValidationIssue[] = [];
@@ -335,6 +337,9 @@ export function parseDocument(value: unknown): DocumentParseResult {
     name: reader.string(value['name'], 'name', 'Label'),
     width: reader.positive(value['width'], 'width', 60),
     height: reader.positive(value['height'], 'height', 40),
+    ...(value['operation'] === undefined
+      ? {}
+      : { operation: reader.oneOf(value['operation'], 'operation', OPERATIONS, 'all') }),
     ...(isRecord(value['gap'])
       ? {
           gap: {

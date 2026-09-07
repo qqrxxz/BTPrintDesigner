@@ -10,7 +10,7 @@ import type {
   RectangleElement,
   TextElement,
 } from '../model/document.js';
-import { substitute } from '../model/placeholders.js';
+import { resolveText, type GenerationIssue, type TextResolution } from './shared.js';
 import { dotsPerMm, type Dpi } from '../util/units.js';
 
 /**
@@ -26,6 +26,11 @@ import { dotsPerMm, type Dpi } from '../util/units.js';
 export interface TsplGenerateOptions {
   readonly dpi?: Dpi;
   /**
+   * Replaces DataMobile variables with sample values, for the preview. The
+   * file DataMobile receives keeps them as written.
+   */
+  readonly resolveVariables?: boolean;
+  /**
    * Values for placeholders. Without them a placeholder reaches the printer as
    * written, which is what a template file is for.
    */
@@ -35,14 +40,7 @@ export interface TsplGenerateOptions {
   readonly includeSetup?: boolean;
 }
 
-export interface GenerationIssue {
-  readonly severity: 'error' | 'warning';
-  /** English wording; a caller translates by `code` and falls back to this. */
-  readonly message: string;
-  readonly code?: string;
-  readonly values?: Readonly<Record<string, string | number>>;
-  readonly elementId?: string;
-}
+export type { GenerationIssue } from './shared.js';
 
 export interface TsplGenerateResult {
   readonly source: string;
@@ -118,17 +116,33 @@ class Generator {
   }
 
   private resolve(text: string, element: LabelElement): string {
-    const result = substitute(text, this.options.data ?? this.document.sampleData);
-    for (const name of result.missing) {
-      this.issues.push({
-        severity: 'warning',
-        elementId: element.id,
-        code: 'generate.placeholder-missing',
-        values: { name },
-        message: `No value for placeholder {{${name}}}; it is printed as written.`,
-      });
-    }
-    return result.text;
+    return this.resolveFully(text, element).text;
+  }
+
+  /**
+   * Resolution with the measuring copy kept.
+   *
+   * Only the symbols whose command carries their size need it; everything else
+   * takes the text and nothing more.
+   */
+  private resolveFully(text: string, element: LabelElement): TextResolution {
+    const resolved = resolveText(text, element, this.document, this.options);
+    this.issues.push(...resolved.issues);
+    return resolved;
+  }
+
+  /** Says that a symbol's declared size is a guess while a variable stands in it. */
+  private warnAboutVariableSize(element: LabelElement, symbology: string): void {
+    this.issues.push({
+      severity: 'warning',
+      elementId: element.id,
+      code: 'generate.variable-symbol-size',
+      values: { symbology },
+      message:
+        `This ${symbology} carries a DataMobile variable, and the command has to state ` +
+        'the symbol size. The size written is the one a sample value needs; a longer ' +
+        'value will need more room.',
+    });
   }
 
   generate(): void {
@@ -280,7 +294,8 @@ class Generator {
   }
 
   private matrix(element: MatrixElement): void {
-    const data = this.resolve(element.data, element);
+    const resolved = this.resolveFully(element.data, element);
+    const data = resolved.text;
     const module = this.snap(element.moduleWidth, 1, 'Module size', element);
     const x = this.dots(element.x);
     const y = this.dots(element.y);
@@ -293,9 +308,18 @@ class Generator {
 
     // Data Matrix and PDF417 are told the box to fit inside, so the generator
     // has to encode the symbol here to know how large that box is.
+    // Only these two write the symbol's size into the command; the QR branch
+    // above states a module size and has already returned.
+    if (resolved.hasVariables) {
+      this.warnAboutVariableSize(
+        element,
+        element.symbology === 'datamatrix' ? 'Data Matrix' : 'PDF417',
+      );
+    }
+
     try {
       if (element.symbology === 'datamatrix') {
-        const symbol = encodeDataMatrix(data);
+        const symbol = encodeDataMatrix(resolved.sized);
         this.lines.push(
           `DMATRIX ${x},${y},${symbol.width * module},${symbol.height * module},"${quote(data)}"`,
         );
@@ -307,7 +331,7 @@ class Generator {
       if (element.pdf417ErrorCorrection !== undefined) {
         options.errorCorrection = element.pdf417ErrorCorrection as Pdf417ErrorCorrection;
       }
-      const symbol = encodePdf417(data, options);
+      const symbol = encodePdf417(resolved.sized, options);
       const rowHeight = module * symbol.moduleAspect;
       const parts = [`W${module}`, `H${rowHeight}`];
       if (element.columns !== undefined) parts.push(`C${element.columns}`);

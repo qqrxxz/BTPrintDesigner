@@ -73,8 +73,16 @@ export function languageOf(profile: PrinterProfile): PrinterLanguage {
 export function generateFor(
   profile: PrinterProfile,
   document: LabelDocument,
+  /**
+   * Fills DataMobile variables in with sample values.
+   *
+   * The template that is exported keeps them; only the copy that becomes the
+   * picture has them filled in, because a label showing `@Barcode@` would be
+   * judged at the wrong width.
+   */
+  resolveVariables = false,
 ): { source: string; issues: Preview['issues']; origins: Preview['origins'] } {
-  const options = { dpi: profile.dpi };
+  const options = { dpi: profile.dpi, resolveVariables };
   switch (languageOf(profile)) {
     case 'zpl':
       return generateZpl(document, options);
@@ -150,7 +158,7 @@ export function previewFromDocument(
   fontSet: TsplFontSet,
 ): Preview {
   const generated = generateFor(profile, document);
-  const rendered = renderFor(profile, generated.source, fontSet, {
+  const rendered = renderFor(profile, generateFor(profile, document, true).source, fontSet, {
     widthMm: document.width,
     heightMm: document.height,
   });

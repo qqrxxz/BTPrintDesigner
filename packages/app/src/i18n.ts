@@ -80,6 +80,14 @@ export interface Strings {
   readonly tooWide: string;
   readonly unsaved: string;
   readonly line: string;
+  readonly operation: string;
+  readonly operationHint: string;
+  readonly variables: string;
+  readonly variablesHint: string;
+  readonly insertVariable: string;
+  readonly noVariables: string;
+  readonly notForOperation: string;
+  readonly unknownVariable: string;
 }
 
 const en: Strings = {
@@ -155,6 +163,16 @@ const en: Strings = {
   tooWide: 'The label is wider than this printer can print, by',
   unsaved: 'unsaved',
   line: 'line',
+  operation: 'DataMobile operation',
+  operationHint:
+    'Decides which variables this template may use. Leave it on any operation to be offered all of them.',
+  variables: 'DataMobile variables',
+  variablesHint:
+    'Written as @Name@. DataMobile fills them in at print time; the preview shows a sample so the width is realistic.',
+  insertVariable: 'Insert a variable',
+  noVariables: 'This label uses none.',
+  notForOperation: 'not offered on this operation',
+  unknownVariable: 'unknown to DataMobile',
 };
 
 const ru: Strings = {
@@ -230,6 +248,16 @@ const ru: Strings = {
   tooWide: 'Этикетка шире, чем печатает этот принтер, на',
   unsaved: 'не сохранено',
   line: 'строка',
+  operation: 'Операция DataMobile',
+  operationHint:
+    'Определяет, какие переменные доступны шаблону. Оставьте «Все операции», чтобы предлагались любые.',
+  variables: 'Переменные DataMobile',
+  variablesHint:
+    'Пишутся как @Имя@. DataMobile подставляет их при печати; в превью показан образец, чтобы ширина была настоящей.',
+  insertVariable: 'Вставить переменную',
+  noVariables: 'На этой этикетке их нет.',
+  notForOperation: 'недоступна для этой операции',
+  unknownVariable: 'DataMobile такой не знает',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

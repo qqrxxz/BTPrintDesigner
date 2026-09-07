@@ -69,6 +69,26 @@ export type { DrawTextOptions, TextAnchor, TextMetrics, TextStyle } from './text
 
 export * from './tspl/index.js';
 
+export {
+  DATAMOBILE_GROUPS,
+  DATAMOBILE_OPERATIONS,
+  DATAMOBILE_PATTERN,
+  DATAMOBILE_VARIABLES,
+  defaultContent,
+  findVariable,
+  findVariablesIn,
+  isAvailable,
+  operationName,
+  sampleFor,
+  variablesFor,
+} from './datamobile/variables.js';
+export type {
+  DataMobileOperation,
+  DataMobileVariable,
+  OperationInfo,
+  VariableGroup,
+} from './datamobile/variables.js';
+
 export { numberAt, parseCpcl, tailFrom, wordAt } from './cpcl/parse.js';
 export type { CpclCommand, CpclParseResult } from './cpcl/parse.js';
 export { renderCpcl } from './cpcl/execute.js';
@@ -121,12 +141,17 @@ export type {
   MatrixSymbology as ModelMatrixSymbology,
 } from './model/document.js';
 export {
+  collectVariables,
   documentPlaceholders,
+  documentVariables,
   elementText,
   findPlaceholders,
   substitute,
+  substituteVariables,
+  unavailableVariables,
 } from './model/placeholders.js';
-export type { SubstitutionResult } from './model/placeholders.js';
+export type { SubstitutionResult, VariableUse } from './model/placeholders.js';
+export type { ResolveOptions, TextResolution } from './generate/shared.js';
 export { parseDocument, serializeDocument } from './model/validate.js';
 export type { DocumentParseResult, ValidationIssue } from './model/validate.js';
 export { generateTspl } from './generate/tspl.js';

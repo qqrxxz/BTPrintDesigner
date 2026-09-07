@@ -20,6 +20,21 @@ The printer chosen in the toolbar decides how many dots there are to the
 millimetre, and the design is stored in millimetres, so switching from a 203 dpi
 printer to a 600 dpi one recomputes the label rather than breaking it.
 
+## DataMobile
+
+The label's properties carry the DataMobile operation the template is for, and
+every content field has a menu of the variables that operation offers — the
+names are the vendor's, spelt exactly, and picking one beats typing it. A new
+element arrives with the obvious variable already in it: a barcode added to a
+product label says `@Barcode@`.
+
+The code panel and both exports show the template, with the variables still in
+it, because DataMobile is what fills them in. The preview shows a copy with
+sample values, so what is on screen is the width the real label will have. The
+variables in use are listed under the sample values, each with the value the
+preview drew, and a name DataMobile does not know — or one this operation does
+not offer — is flagged there and in the problem list.
+
 ## Both languages
 
 The interface is Russian and English, switchable at any time. Diagnostics from

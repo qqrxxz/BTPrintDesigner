@@ -1,4 +1,5 @@
 import type { Rotation } from '../bitmap/Bitmap1.js';
+import type { DataMobileOperation } from '../datamobile/variables.js';
 
 /**
  * The label document model.
@@ -23,6 +24,15 @@ export interface LabelDocument {
   readonly height: number;
   /** Gap between labels on the roll, in millimetres. */
   readonly gap?: { readonly height: number; readonly offset: number };
+  /**
+   * The DataMobile print template this label is.
+   *
+   * DataMobile assigns a template to an operation and offers a different set of
+   * variables to each; naming the operation is what lets the designer be told
+   * that `@Price@` means nothing on a document template. Absent when the label
+   * is not a DataMobile template at all.
+   */
+  readonly operation?: DataMobileOperation;
   /**
    * Printer setup lines reproduced verbatim, between the size and the first
    * element.

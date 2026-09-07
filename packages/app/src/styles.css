@@ -392,6 +392,31 @@ textarea:focus {
   margin-right: 6px;
 }
 
+/* DataMobile variables ---------------------------------------------------- */
+
+.variables li.info {
+  color: var(--text);
+}
+
+.variables .where {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  color: var(--accent);
+}
+
+/* A field with the variable menu beneath it. */
+.with-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.variable-picker {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 100%;
+}
+
 /* Code ------------------------------------------------------------------- */
 
 .code-area {

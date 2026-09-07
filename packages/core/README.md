@@ -49,6 +49,31 @@ resolutions and is the standing check that this holds.
 | `model/*` | The label document: language-neutral, millimetres, placeholders |
 | `generate/*` | Document to printer code; the only place that knows about dots |
 | `import/*` | Printer code back to a document, and an honest answer about whether it fits |
+| `datamobile/variables` | The `@Name@` variables DataMobile substitutes at print time, and which operation offers which |
+
+## DataMobile variables
+
+These labels are templates for DataMobile, which fills in `@Barcode@`,
+`@Price@` and the rest when it prints. Two consequences run through the code.
+
+The exported file keeps the variable. A generator that resolved `@Barcode@`
+would freeze one product's barcode into a template meant for every product, so
+`resolveVariables` is off by default and the preview is the only thing that
+turns it on. The preview needs it, because nine characters of `@Barcode@` would
+be judged as fitting where thirteen digits do not — each variable therefore
+carries a sample of realistic length.
+
+A few commands state a symbol's size themselves: TSPL's `DMATRIX` and `PDF417`
+carry width and height. Those are computed from the sample and the generator
+warns, because a value longer than the sample will want more room than the
+template gives it.
+
+Which variables exist depends on the operation the template is assigned to in
+DataMobile's settings — a price means nothing on a packing sheet. The document
+records that operation, `variablesFor` lists what it offers, and a variable
+used outside its operation is a warning rather than an error: DataMobile leaves
+an unrecognised name on the label as written, which is exactly the failure
+nobody notices until a printed label comes back.
 
 ## The document and the code
 

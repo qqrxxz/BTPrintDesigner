@@ -1,3 +1,4 @@
+import { operationName, type DataMobileOperation } from '@btpd/core';
 import type { Language } from './i18n.js';
 
 /**
@@ -44,6 +45,16 @@ const RU: Readonly<Record<string, Template>> = {
     'печатается {dots} — то есть {actual} мм.',
   'generate.placeholder-missing':
     'Для плейсхолдера {{{name}}} нет значения; он печатается как есть.',
+  'generate.variable-unknown':
+    'В DataMobile нет переменной {name}; она напечатается как есть. ' +
+    'Проверьте написание, включая заглавные буквы.',
+  'generate.variable-unavailable':
+    'Переменная {name} не предлагается шаблону операции «{operation}», ' +
+    'поэтому DataMobile оставит её как есть.',
+  'generate.variable-symbol-size':
+    'В этом символе {symbology} стоит переменная DataMobile, а команда обязана ' +
+    'указать размер символа. Записан размер, который нужен образцу значения; ' +
+    'более длинному значению потребуется больше места.',
   'generate.diagonal-line':
     'В TSPL нет команды для диагональной линии, поэтому эта линия не напечатается. ' +
     'Сделайте её горизонтальной или вертикальной либо перенесите в задание ZPL.',
@@ -85,5 +96,11 @@ export function translate(
   if (code === undefined) return message;
   const template = TABLES[language][code];
   if (template === undefined) return message;
-  return fill(template, values ?? {});
+  // An operation arrives as DataMobile's own identifier; the reader knows it by
+  // the name on the settings screen.
+  const named =
+    values?.operation === undefined
+      ? values
+      : { ...values, operation: operationName(values.operation as DataMobileOperation, language) };
+  return fill(template, named ?? {});
 }

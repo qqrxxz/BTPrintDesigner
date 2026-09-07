@@ -1,12 +1,21 @@
 import {
   checkLabelWidth,
   createDocument,
+  DATAMOBILE_GROUPS,
+  DATAMOBILE_OPERATIONS,
+  defaultContent,
   documentPlaceholders,
+  documentVariables,
+  findVariable,
+  isAvailable,
   encodePng,
   parseDocument,
   PRINTER_PROFILES,
   serializeDocument,
+  substituteVariables,
+  variablesFor,
   type BarcodeElement,
+  type DataMobileOperation,
   type LabelDocument,
   type LabelElement,
   type MatrixElement,
@@ -100,7 +109,14 @@ export class App {
     const usesGenerated = state.code === '' || state.code === generated.source;
     const code = usesGenerated ? generated.source : state.code;
 
-    const rendered = renderFor(profile, code, fonts, size);
+    // The picture comes from a copy with the DataMobile variables filled in.
+    // The file itself must keep saying `@Barcode@` — DataMobile is what
+    // substitutes it — but nine characters of `@Barcode@` would be judged as
+    // fitting where a thirteen digit barcode does not.
+    const shown = usesGenerated
+      ? generateFor(profile, state.document, true).source
+      : substituteVariables(code);
+    const rendered = renderFor(profile, shown, fonts, size);
     let origins: Record<string, number> = { ...generated.origins };
     if (!usesGenerated) {
       origins = {};
@@ -255,6 +271,8 @@ export class App {
       this.properties(text),
       h('h2', {}, text.sampleData),
       this.sampleData(text),
+      h('h2', {}, text.variables),
+      this.variables(text),
       h('h2', {}, text.problems),
       this.problems(text, derived),
     );
@@ -364,6 +382,87 @@ export class App {
     return list;
   }
 
+  /**
+   * The DataMobile variables this label uses, with the value the preview shows.
+   *
+   * A misspelt name is the failure this catches: DataMobile leaves an unknown
+   * `@Bracode@` on the label as those eight characters, which nobody notices
+   * until a printed label comes back from the floor.
+   */
+  private variables(text: Strings): HTMLElement {
+    const state = this.store.get();
+    const operation = state.document.operation ?? 'all';
+    const used = documentVariables(state.document);
+    if (used.length === 0) {
+      return h('p', { class: 'empty' }, `${text.noVariables} ${text.variablesHint}`);
+    }
+
+    const list = h('ul', { class: 'problems variables' });
+    for (const use of used) {
+      const entry = findVariable(use.name);
+      const known = entry !== undefined;
+      const offered = known && isAvailable(use.name, operation);
+      const description = !known
+        ? text.unknownVariable
+        : !offered
+          ? text.notForOperation
+          : `${state.language === 'ru' ? entry.ru : entry.en} · ${entry.sample}`;
+      list.append(
+        h(
+          'li',
+          { class: known && offered ? 'info' : 'warning' },
+          h('span', { class: 'where' }, use.name),
+          h('span', {}, description),
+        ),
+      );
+    }
+    return list;
+  }
+
+  /**
+   * A menu of the variables the label's operation offers.
+   *
+   * The names are the vendor's and have to be spelt exactly, capitals and all,
+   * so choosing one beats typing it.
+   */
+  private variablePicker(text: Strings, insert: (name: string) => void): HTMLElement {
+    const state = this.store.get();
+    const russian = state.language === 'ru';
+    const offered = variablesFor(state.document.operation ?? 'all');
+
+    const menu = h('select', { class: 'variable-picker', title: text.variablesHint });
+    menu.append(h('option', { value: '', selected: true }, text.insertVariable));
+    for (const group of DATAMOBILE_GROUPS) {
+      const mine = offered.filter((entry) => entry.group === group.id);
+      if (mine.length === 0) continue;
+      const box = h('optgroup', { label: russian ? group.ru : group.en });
+      for (const entry of mine) {
+        box.append(
+          h('option', { value: entry.name }, `${entry.name} — ${russian ? entry.ru : entry.en}`),
+        );
+      }
+      menu.append(box);
+    }
+    menu.addEventListener('change', () => {
+      if (menu.value !== '') insert(menu.value);
+    });
+    return menu;
+  }
+
+  /** A text field with the variable menu beside it, inserting at the caret. */
+  private withPicker(
+    text: Strings,
+    control: HTMLInputElement | HTMLTextAreaElement,
+    commit: (value: string) => void,
+  ): HTMLElement {
+    const picker = this.variablePicker(text, (name) => {
+      const from = control.selectionStart ?? control.value.length;
+      const to = control.selectionEnd ?? from;
+      commit(control.value.slice(0, from) + name + control.value.slice(to));
+    });
+    return h('div', { class: 'with-picker' }, control, picker);
+  }
+
   private sampleData(text: Strings): HTMLElement {
     const state = this.store.get();
     const names = documentPlaceholders(state.document);
@@ -414,6 +513,22 @@ export class App {
           this.store.edit((document) => ({ ...document, height: Math.max(5, value) })),
         ),
       ),
+      field(
+        text.operation,
+        select(
+          state.document.operation ?? 'all',
+          DATAMOBILE_OPERATIONS.map((entry) => ({
+            value: entry.id,
+            label: state.language === 'ru' ? entry.ru : entry.en,
+          })),
+          (value) =>
+            this.store.edit((document) => ({
+              ...document,
+              operation: value as DataMobileOperation,
+            })),
+        ),
+      ),
+      h('p', { class: 'hint' }, text.operationHint),
     );
 
     const element = this.store.selected();
@@ -474,7 +589,12 @@ export class App {
     );
 
     container.append(
-      field(text.content, content),
+      field(
+        text.content,
+        this.withPicker(text, content, (value) =>
+          update((e) => ({ ...(e as TextElement), content: value })),
+        ),
+      ),
       field(
         `${text.textHeight}, mm`,
         numberInput(
@@ -617,8 +737,12 @@ export class App {
       ),
       field(
         text.data,
-        textInput(element.data, (value) =>
-          update((e) => ({ ...(e as BarcodeElement), data: value })),
+        this.withPicker(
+          text,
+          textInput(element.data, (value) =>
+            update((e) => ({ ...(e as BarcodeElement), data: value })),
+          ),
+          (value) => update((e) => ({ ...(e as BarcodeElement), data: value })),
         ),
       ),
       field(
@@ -661,7 +785,13 @@ export class App {
       ),
       field(
         text.data,
-        textInput(element.data, (value) => update((e) => ({ ...(e as MatrixElement), data: value }))),
+        this.withPicker(
+          text,
+          textInput(element.data, (value) =>
+            update((e) => ({ ...(e as MatrixElement), data: value })),
+          ),
+          (value) => update((e) => ({ ...(e as MatrixElement), data: value })),
+        ),
       ),
       field(
         `${text.moduleWidth}, mm`,
@@ -981,9 +1111,13 @@ function describeElement(element: LabelElement): string {
 function newElement(type: LabelElement['type'], id: string, document: LabelDocument): LabelElement {
   const x = 4;
   const y = Math.min(document.height - 8, 4 + document.elements.length * 6);
+  // On a template tied to an operation, the obvious variable beats a stub: a
+  // barcode on a product label is the product's barcode virtually every time.
+  const preset = (kind: 'text' | 'barcode' | 'matrix', fallback: string): string =>
+    defaultContent(kind, document.operation) ?? fallback;
   switch (type) {
     case 'text':
-      return { id, type: 'text', x, y, content: 'Text', style: { heightMm: 3 } };
+      return { id, type: 'text', x, y, content: preset('text', 'Text'), style: { heightMm: 3 } };
     case 'rectangle':
       return { id, type: 'rectangle', x, y, width: 20, height: 10, fill: 'outline', lineWidth: 0.3 };
     case 'line':
@@ -995,13 +1129,21 @@ function newElement(type: LabelElement['type'], id: string, document: LabelDocum
         x,
         y,
         symbology: 'code128',
-        data: '4820-117-A',
+        data: preset('barcode', '4820-117-A'),
         moduleWidth: 0.25,
         height: 10,
         humanReadable: true,
       };
     case 'matrix':
-      return { id, type: 'matrix', x, y, symbology: 'qr', data: 'https://example.com', moduleWidth: 0.5 };
+      return {
+        id,
+        type: 'matrix',
+        x,
+        y,
+        symbology: 'qr',
+        data: preset('matrix', 'https://example.com'),
+        moduleWidth: 0.5,
+      };
   }
 }
 
