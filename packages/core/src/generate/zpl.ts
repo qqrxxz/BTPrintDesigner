@@ -1,6 +1,7 @@
 import { encodeDataMatrix } from '../barcode/datamatrix/encode.js';
 import { encodePdf417 } from '../barcode/pdf417/encode.js';
 import { BarcodeError } from '../barcode/types.js';
+import { applyGs1Separator } from '../model/gs1.js';
 import type {
   BarcodeElement,
   LabelDocument,
@@ -325,9 +326,42 @@ class Generator {
     this.lines.push(`^FO${x},${y}^${command}${parameters}${fieldData(data)}^FS`);
   }
 
+  /**
+   * Field data for a symbol, leaving a GS1 separator token alone.
+   *
+   * ZPL reads `~` and `^` as the start of a command and `^FH` exists to send
+   * them as data — but the separator token is not data: it is there precisely
+   * so that the printer acts on it. It therefore goes out as written, and
+   * anything else in the payload that ZPL would read as a command is reported
+   * rather than quietly escaped into something the printer would print.
+   */
+  private symbolData(data: string, element: MatrixElement): string {
+    const token = element.gs1Separator;
+    if (token === undefined || token === 'none' || !data.includes(token)) {
+      return fieldData(data);
+    }
+    const rest = data.split(token).join('');
+    if (/[\^~]/.test(rest)) {
+      this.issues.push({
+        severity: 'warning',
+        elementId: element.id,
+        code: 'generate.zpl-caret-in-gs1',
+        message:
+          'This payload contains ^ or ~ outside the separator token. ZPL reads both as ' +
+          'the start of a command, and they cannot be escaped without also escaping the ' +
+          'token, so they are sent as they are.',
+      });
+    }
+    return `^FD${data}`;
+  }
+
   private matrix(element: MatrixElement): void {
     const resolved = this.resolveFully(element.data, element);
-    const data = resolved.text;
+    // The file keeps the separator token, because that is what the printer
+    // reads; the preview and every measurement read it as the character.
+    const separator = (text: string): string => applyGs1Separator(text, element.gs1Separator);
+    const data = this.options.resolveVariables === true ? separator(resolved.text) : resolved.text;
+    const sized = separator(resolved.sized);
     const module = this.snap(element.moduleWidth, 1, 'Module size', element);
     const x = this.dots(element.x);
     const y = this.dots(element.y);
@@ -344,12 +378,16 @@ class Generator {
     }
 
     try {
-      if (element.symbology === 'datamatrix') {
-        encodeDataMatrix(resolved.sized);
-        this.lines.push(`^FO${x},${y}^BX${facing},${module},200${fieldData(data)}^FS`);
+      if (element.symbology === 'datamatrix' || element.symbology === 'gs1-datamatrix') {
+        // Encoded only to find out whether it can be: ^BX states a module size
+        // rather than a symbol size, so the printer chooses the shape itself.
+        encodeDataMatrix(sized, { gs1: element.symbology === 'gs1-datamatrix' });
+        this.lines.push(
+          `^FO${x},${y}^BX${facing},${module},200${this.symbolData(data, element)}^FS`,
+        );
         return;
       }
-      const symbol = encodePdf417(resolved.sized, {
+      const symbol = encodePdf417(sized, {
         ...(element.columns === undefined ? {} : { columns: element.columns }),
       });
       const rowHeight = module * symbol.moduleAspect;

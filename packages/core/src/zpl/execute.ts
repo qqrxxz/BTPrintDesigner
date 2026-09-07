@@ -795,7 +795,9 @@ class Interpreter {
           : 'M')) as ErrorCorrectionLevel;
       return encodeQr(match?.[3] ?? data, { errorCorrection: level });
     }
-    if (barcode.kind === 'datamatrix') return encodeDataMatrix(data);
+    // A group separator in the payload is GS1's own separator, so the symbol
+    // is encoded as GS1: FNC1 first, which is what a scanner reads as ]d2.
+    if (barcode.kind === 'datamatrix') return encodeDataMatrix(data, { gs1: data.includes('\u001d') });
     const level = Number(barcode.errorCorrection ?? 0);
     return encodePdf417(data, {
       ...(barcode.columns && barcode.columns > 0 ? { columns: barcode.columns } : {}),

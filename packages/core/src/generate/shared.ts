@@ -94,7 +94,7 @@ export function resolveText(
     }
   }
 
-  const filled = substituteVariables(substituted.text);
+  const filled = substituteVariables(substituted.text, document.variableSamples);
   return {
     text: options.resolveVariables ? filled : substituted.text,
     sized: filled,

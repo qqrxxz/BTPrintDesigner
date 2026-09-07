@@ -41,6 +41,16 @@ barcode's data the choice replaces what was there, because half a value and half
 a variable is not a thing anyone wants; in running text it lands at the caret
 and the rest stays.
 
+Each variable in use is listed under "values" with the value the preview draws
+for it. That value can be set: the catalogue's sample is a realistic length, but
+only the person designing the label knows whether their product names run to
+forty characters. What is typed there never reaches the exported file.
+
+A GS1 Data Matrix has one more setting: which token in its data stands for the
+separator between two application identifiers — `~1`, `_1`, `~d029`, `~]`, or
+none at all. The token goes to the printer as written, because that is what the
+printer acts on, and the preview reads it as the character it stands for.
+
 The code panel and both exports show the template, with the variables still in
 it, because DataMobile is what fills them in. The preview shows a copy with
 sample values, so what is on screen is the width the real label will have. The

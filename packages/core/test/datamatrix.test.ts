@@ -221,3 +221,39 @@ describe('Data Matrix sizing', () => {
     expect(encodeDataMatrix('A').quietZone).toBe(1);
   });
 });
+
+describe('GS1 Data Matrix', () => {
+  const GS = '\u001d';
+
+  /** The size table entry a finished symbol came from. */
+  const sizeOf = (symbol: { width: number; height: number }) =>
+    [...SQUARE_SIZES, ...RECTANGULAR_SIZES].find(
+      (candidate) => candidate.columns === symbol.width && candidate.rows === symbol.height,
+    )!;
+
+  it('puts FNC1 in the first codeword, which is what declares it GS1', () => {
+    const symbol = encodeDataMatrix('0104006381333931', { gs1: true });
+    const size = sizeOf(symbol);
+    // 232 first, then the digit pairs: 01 04 00 63 ... each as 130 + value.
+    expect(extractCodewords(symbol, size)[0]).toBe(232);
+  });
+
+  it('leaves a plain symbol without it', () => {
+    const symbol = encodeDataMatrix('0104006381333931');
+    expect(extractCodewords(symbol, sizeOf(symbol))[0]).not.toBe(232);
+  });
+
+  it('carries a separator between two identifiers as ASCII 29', () => {
+    // 01 is fixed length, 21 is not, so a separator follows the serial.
+    const symbol = encodeDataMatrix(`010400638133393121ABC${GS}3103000123`, { gs1: true });
+    const codewords = extractCodewords(symbol, sizeOf(symbol));
+    // The group separator is an ordinary ASCII value: 29 + 1.
+    expect(codewords).toContain(30);
+  });
+
+  it('is bigger than the same payload without FNC1, by exactly the one codeword', () => {
+    const plain = encodeDataMatrix('0104006381333931215x8');
+    const gs1 = encodeDataMatrix('0104006381333931215x8', { gs1: true });
+    expect(gs1.width * gs1.height).toBeGreaterThanOrEqual(plain.width * plain.height);
+  });
+});

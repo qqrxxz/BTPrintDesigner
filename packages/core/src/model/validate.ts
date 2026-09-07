@@ -2,6 +2,7 @@ import type { Rotation } from '../bitmap/Bitmap1.js';
 import { DATAMOBILE_OPERATIONS, type DataMobileOperation } from '../datamobile/variables.js';
 import {
   DOCUMENT_VERSION,
+  GS1_SEPARATORS,
   type LabelDocument,
   type LabelElement,
   type LinearSymbology,
@@ -42,7 +43,12 @@ const LINEAR_SYMBOLOGIES: readonly LinearSymbology[] = [
   'upca',
   'upce',
 ];
-const MATRIX_SYMBOLOGIES: readonly MatrixSymbology[] = ['qr', 'datamatrix', 'pdf417'];
+const MATRIX_SYMBOLOGIES: readonly MatrixSymbology[] = [
+  'qr',
+  'datamatrix',
+  'gs1-datamatrix',
+  'pdf417',
+];
 const ALIGNMENTS: readonly TextAlignment[] = ['left', 'center', 'right'];
 const OPERATIONS: readonly DataMobileOperation[] = DATAMOBILE_OPERATIONS.map((entry) => entry.id);
 
@@ -268,6 +274,16 @@ function readElement(reader: Reader, value: unknown, path: string): LabelElement
                 2,
               ),
             }),
+        ...(value['gs1Separator'] === undefined
+          ? {}
+          : {
+              gs1Separator: reader.oneOf(
+                value['gs1Separator'],
+                `${path}.gs1Separator`,
+                GS1_SEPARATORS,
+                'none',
+              ),
+            }),
       };
     default:
       return reader.error(
@@ -322,6 +338,14 @@ export function parseDocument(value: unknown): DocumentParseResult {
     }
   }
 
+  const variableSamples: Record<string, string> = {};
+  if (isRecord(value['variableSamples'])) {
+    for (const [key, entry] of Object.entries(value['variableSamples'])) {
+      if (typeof entry === 'string') variableSamples[key] = entry;
+      else reader.warn(`variableSamples.${key}`, 'Sample values must be text');
+    }
+  }
+
   const preamble: string[] = [];
   if (Array.isArray(value['preamble'])) {
     value['preamble'].forEach((line, index) => {
@@ -351,6 +375,7 @@ export function parseDocument(value: unknown): DocumentParseResult {
     ...(preamble.length > 0 ? { preamble } : {}),
     elements,
     ...(Object.keys(sampleData).length > 0 ? { sampleData } : {}),
+    ...(Object.keys(variableSamples).length > 0 ? { variableSamples } : {}),
   };
 
   return { document, issues: reader.issues };

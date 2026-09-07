@@ -91,6 +91,9 @@ export interface Strings {
   readonly values: string;
   readonly dragHint: string;
   readonly replaceWithVariable: string;
+  readonly gs1Separator: string;
+  readonly gs1SeparatorNone: string;
+  readonly gs1SeparatorHint: string;
 }
 
 const en: Strings = {
@@ -179,6 +182,13 @@ const en: Strings = {
   values: 'Values',
   dragHint: 'Drag to move. Arrow keys nudge by 0.1\u00a0mm, with Shift by 1\u00a0mm.',
   replaceWithVariable: 'Replace with a variable…',
+  gs1Separator: 'GS1 separator',
+  gs1SeparatorNone: 'Do not use',
+  gs1SeparatorHint:
+    'The token in the data that stands for the separator between two application ' +
+    'identifiers. It goes to the printer as written; the preview reads it as the ' +
+    'character it stands for. Which token to use is decided by the printer and by ' +
+    'DataMobile, not here.',
 };
 
 const ru: Strings = {
@@ -267,6 +277,13 @@ const ru: Strings = {
   values: 'Значения',
   dragHint: 'Перетаскивайте мышью. Стрелки сдвигают на 0,1\u00a0мм, с Shift — на 1\u00a0мм.',
   replaceWithVariable: 'Заменить переменной…',
+  gs1Separator: 'Разделитель GS1',
+  gs1SeparatorNone: 'Не использовать',
+  gs1SeparatorHint:
+    'Обозначение в данных, которое заменяет разделитель между двумя идентификаторами ' +
+    'применения. В принтер оно уходит как написано, а превью читает его как символ, ' +
+    'который оно обозначает. Какое обозначение нужно, решают принтер и DataMobile, ' +
+    'а не эта программа.',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

@@ -681,7 +681,10 @@ class Interpreter {
 
     let symbol: MatrixSymbol;
     try {
-      symbol = encodeDataMatrix(content);
+      // A group separator in the payload is GS1's own: it goes between two
+      // application identifiers of variable length, and a symbol carrying one
+      // is encoded as GS1 — FNC1 first — so a scanner reports it as ]d2.
+      symbol = encodeDataMatrix(content, { gs1: content.includes('\u001d') });
     } catch (error) {
       this.report('error', describe(error, 'Data Matrix', content), context.args[contentIndex]!);
       return;

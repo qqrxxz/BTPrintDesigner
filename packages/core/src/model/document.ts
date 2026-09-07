@@ -51,6 +51,15 @@ export interface LabelDocument {
    * fit" is a question about this design, not about the run that will use it.
    */
   readonly sampleData?: Readonly<Record<string, string>>;
+  /**
+   * Values to show in place of DataMobile variables, by variable name.
+   *
+   * The catalogue carries a sample for every variable, but a sample of a
+   * realistic length is not always the length that matters here: a warehouse
+   * whose product names run to forty characters wants to see forty of them.
+   * What is set here wins over the catalogue's own sample.
+   */
+  readonly variableSamples?: Readonly<Record<string, string>>;
 }
 
 export interface ElementBase {
@@ -155,7 +164,24 @@ export interface BarcodeElement extends ElementBase {
   readonly checkDigit?: boolean;
 }
 
-export type MatrixSymbology = 'qr' | 'datamatrix' | 'pdf417';
+export type MatrixSymbology = 'qr' | 'datamatrix' | 'gs1-datamatrix' | 'pdf417';
+
+/**
+ * How the GS1 separator is written inside a symbol's data.
+ *
+ * Between two application identifiers of variable length, GS1 wants the ASCII
+ * group separator, and no keyboard has one. Every printer and every piece of
+ * middleware therefore spells it its own way, and which spelling reaches the
+ * printer is decided by the setup, not by us — so the element says which one
+ * its data uses, and the preview reads that token as the separator it stands
+ * for. `none` leaves the data exactly as written.
+ */
+export type Gs1Separator = 'none' | '~]' | '~d029' | '~1' | '_1';
+
+export const GS1_SEPARATORS: readonly Gs1Separator[] = ['none', '~]', '~d029', '~1', '_1'];
+
+/** The character the tokens above stand for: ASCII 29, the group separator. */
+export const GROUP_SEPARATOR = '\u001d';
 
 export interface MatrixElement extends ElementBase {
   readonly type: 'matrix';
@@ -169,6 +195,14 @@ export interface MatrixElement extends ElementBase {
   readonly columns?: number;
   /** PDF417 only, 0 to 8. */
   readonly pdf417ErrorCorrection?: number;
+  /**
+   * GS1 Data Matrix only: which token in the data stands for the separator.
+   *
+   * The token stays in the file the printer receives, because that is what the
+   * printer understands; the preview reads it as ASCII 29 so the symbol on
+   * screen is the symbol that will be printed.
+   */
+  readonly gs1Separator?: Gs1Separator;
 }
 
 export type LabelElement =

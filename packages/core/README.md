@@ -76,6 +76,26 @@ used outside its operation is a warning rather than an error: DataMobile leaves
 an unrecognised name on the label as written, which is exactly the failure
 nobody notices until a printed label comes back.
 
+## GS1, FNC1 and the separator
+
+FNC1 is what tells a scanner that a payload is application identifiers rather
+than free text, and it is spelt differently in every symbology. Code 128 has it
+as a character in its own alphabet: `encodeCode128` with `gs1: true` puts one in
+front, which is what makes a GS1-128. Data Matrix has it as codeword 232 in the
+first position, which `encodeDataMatrix` writes when `gs1` is set — that is what
+a scanner reads back as the `]d2` identifier. QR's FNC1 mode is not implemented;
+nothing in this program asks for a GS1 QR yet.
+
+Between two identifiers of variable length GS1 wants ASCII 29, the group
+separator. Nobody can type one, so every printer and every piece of middleware
+spells it with a token of its own — `~1`, `_1`, `~d029`, `~]` — and which one
+arrives at the printer is a property of the setup. A GS1 Data Matrix element
+therefore records which token its data uses. The generated file keeps the token,
+because that is what the printer acts on; the preview and every measurement read
+it as the character it stands for, so the symbol on screen is the symbol that
+will be printed. An interpreter meeting a group separator in a Data Matrix
+payload encodes the symbol as GS1: a separator there means nothing else.
+
 ## The document and the code
 
 The document model is the source of truth a project file holds. It is

@@ -11,6 +11,7 @@ import {
   encodePng,
   parseDocument,
   PRINTER_PROFILES,
+  GS1_SEPARATORS,
   PRESET_GROUPS,
   presetsOf,
   serializeDocument,
@@ -135,7 +136,7 @@ export class App {
     // fitting where a thirteen digit barcode does not.
     const shown = usesGenerated
       ? generateFor(profile, state.document, true).source
-      : substituteVariables(code);
+      : substituteVariables(code, state.document.variableSamples);
     const rendered = renderFor(profile, shown, fonts, size);
     let origins: Record<string, number> = { ...generated.origins };
     if (!usesGenerated) {
@@ -467,27 +468,42 @@ export class App {
       return h('p', { class: 'empty' }, `${text.noVariables} ${text.variablesHint}`);
     }
 
-    const list = h('ul', { class: 'problems variables' });
+    const container = h('div', { class: 'fields' });
     for (const use of used) {
       const entry = findVariable(use.name);
       const known = entry !== undefined;
       const offered = known && isAvailable(use.name, operation);
-      const description = !known
+      const chosen = state.document.variableSamples?.[use.name] ?? '';
+
+      // The value shown in the preview can be set here: the catalogue's sample
+      // is a realistic length, but only the person designing the label knows
+      // what their own product names run to.
+      const input = textInput(chosen, (value) =>
+        this.store.edit((document) => {
+          const samples = { ...document.variableSamples };
+          if (value.trim() === '') delete samples[use.name];
+          else samples[use.name] = value;
+          const { variableSamples: _dropped, ...rest } = document;
+          return Object.keys(samples).length > 0
+            ? { ...rest, variableSamples: samples }
+            : (rest as LabelDocument);
+        }),
+      );
+      if (entry) input.placeholder = entry.sample;
+
+      container.append(field(use.name, input));
+      const note = !known
         ? text.unknownVariable
         : !offered
           ? text.notForOperation
-          : `${state.language === 'ru' ? entry.ru : entry.en} · ${entry.sample}`;
-      list.append(
-        h(
-          'li',
-          { class: known && offered ? 'info' : 'warning' },
-          h('span', { class: 'where' }, use.name),
-          h('span', {}, description),
-        ),
+          : (state.language === 'ru' ? entry.ru : entry.en);
+      container.append(
+        h('p', { class: `hint${known && offered ? '' : ' warning'}` }, note),
       );
     }
-    return list;
+    return container;
   }
+
 
   /**
    * A menu of the variables the label's operation offers.
@@ -899,7 +915,12 @@ export class App {
         text.symbology,
         select(
           element.symbology,
-          (['qr', 'datamatrix', 'pdf417'] as const).map((value) => ({ value, label: value })),
+          [
+            { value: 'qr' as const, label: 'QR' },
+            { value: 'datamatrix' as const, label: 'DataMatrix' },
+            { value: 'gs1-datamatrix' as const, label: 'GS1 DataMatrix' },
+            { value: 'pdf417' as const, label: 'PDF417' },
+          ],
           (value) => update((e) => ({ ...(e as MatrixElement), symbology: value })),
         ),
       ),
@@ -912,6 +933,27 @@ export class App {
         (value) => update((e) => ({ ...(e as MatrixElement), data: value })),
         'replace',
       ),
+    );
+
+    if (element.symbology === 'gs1-datamatrix') {
+      // Only a GS1 symbol has application identifiers to separate.
+      container.append(
+        field(
+          text.gs1Separator,
+          select(
+            element.gs1Separator ?? 'none',
+            GS1_SEPARATORS.map((value) => ({
+              value,
+              label: value === 'none' ? text.gs1SeparatorNone : value,
+            })),
+            (value) => update((e) => ({ ...(e as MatrixElement), gs1Separator: value })),
+            { title: text.gs1SeparatorHint },
+          ),
+        ),
+      );
+    }
+
+    container.append(
       field(
         `${text.moduleWidth}, mm`,
         numberInput(

@@ -159,6 +159,7 @@ export const PRESETS: readonly Preset[] = [
 
   matrix('qr', 'QR', 0.5),
   matrix('datamatrix', 'DataMatrix', 0.5),
+  matrix('gs1-datamatrix', 'GS1 DataMatrix', 0.5),
   matrix('pdf417', 'PDF417', 0.25),
 
   {

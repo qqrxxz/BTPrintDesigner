@@ -355,7 +355,7 @@ class Generator {
     const x = this.dots(element.x);
     const y = this.dots(element.y);
 
-    if (element.symbology === 'datamatrix') {
+    if (element.symbology === 'datamatrix' || element.symbology === 'gs1-datamatrix') {
       this.issues.push({
         severity: 'error',
         elementId: element.id,

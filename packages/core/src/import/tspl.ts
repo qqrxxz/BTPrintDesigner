@@ -508,7 +508,8 @@ class Importer {
       type: 'matrix',
       x: this.mm(x + this.referenceX),
       y: this.mm(y + this.referenceY),
-      symbology: 'datamatrix',
+      // A group separator in the payload is GS1's own, so the symbol is one.
+      symbology: content.includes('\u001d') ? 'gs1-datamatrix' : 'datamatrix',
       data: content,
       moduleWidth: this.mm(module),
     });

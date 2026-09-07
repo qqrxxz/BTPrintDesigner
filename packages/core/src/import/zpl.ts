@@ -432,7 +432,8 @@ class Importer {
       this.elements.push({
         ...base,
         type: 'matrix',
-        symbology: 'datamatrix',
+        // A group separator in the payload is GS1's own, so the symbol is one.
+        symbology: data.includes('\u001d') ? 'gs1-datamatrix' : 'datamatrix',
         data,
         moduleWidth: this.mm(Math.max(1, Math.round(numberParameter(command, 1, 5)))),
       });

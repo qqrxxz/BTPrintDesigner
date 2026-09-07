@@ -22,6 +22,8 @@ import {
  */
 
 const ASCII_ECI = 241;
+/** FNC1; first in the stream it means the payload is GS1 data. */
+const ASCII_FNC1 = 232;
 const ASCII_PAD = 129;
 const ASCII_DIGIT_PAIR_BASE = 130;
 const ASCII_UPPER_SHIFT = 235;
@@ -29,6 +31,14 @@ const ASCII_UPPER_SHIFT = 235;
 const GENERATOR_BASE = 1;
 
 export interface DataMatrixOptions {
+  /**
+   * Makes the symbol a GS1 Data Matrix.
+   *
+   * One codeword, 232, in the first position. A scanner that reads it reports
+   * the symbol with the ]d2 identifier, which is how the receiving system knows
+   * the payload is application identifiers rather than free text.
+   */
+  readonly gs1?: boolean;
   /** Square by default; rectangles suit a wide, shallow space on a label. */
   readonly shape?: SymbolShape;
   /** Force a symbol size by its module dimensions, e.g. 16 by 48. */
@@ -52,9 +62,13 @@ export interface DataMatrixOptions {
  * codewords per byte. That is the honest price of not implementing Base 256;
  * the symbol still decodes correctly everywhere.
  */
-function encodeAscii(data: string, eci: number | undefined): number[] {
+function encodeAscii(data: string, eci: number | undefined, gs1: boolean): number[] {
   const bytes = new TextEncoder().encode(data);
   const codewords: number[] = [];
+
+  // FNC1 goes first, before any ECI: its position is what declares the symbol
+  // to be GS1 rather than a symbol that happens to start with a 232.
+  if (gs1) codewords.push(ASCII_FNC1);
 
   if (eci !== undefined) {
     codewords.push(ASCII_ECI);
@@ -308,7 +322,7 @@ export function encodeDataMatrix(data: string, options: DataMatrixOptions = {}):
   if (data.length === 0) throw new BarcodeError('Data Matrix needs at least one character');
 
   const eci = resolveEci(data, options.eci);
-  const encoded = encodeAscii(data, eci);
+  const encoded = encodeAscii(data, eci, options.gs1 === true);
   const symbol = chooseSize(options, encoded.length);
   const codewords = addErrorCorrection(pad(encoded, symbol.dataCodewords), symbol);
 

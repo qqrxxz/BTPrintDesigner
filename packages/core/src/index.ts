@@ -83,6 +83,7 @@ export {
   variablesFor,
 } from './datamobile/variables.js';
 export { findPreset, PRESET_GROUPS, PRESETS, presetsOf } from './model/presets.js';
+export { applyGs1Separator, isGs1 } from './model/gs1.js';
 export type { Preset, PresetGroup } from './model/presets.js';
 
 export type {
@@ -125,7 +126,13 @@ export {
 } from './printer/profiles.js';
 export type { PrinterLanguage, PrinterProfile, WidthCheck } from './printer/profiles.js';
 
-export { createDocument, DOCUMENT_VERSION, elementBounds } from './model/document.js';
+export {
+  createDocument,
+  DOCUMENT_VERSION,
+  elementBounds,
+  GROUP_SEPARATOR,
+  GS1_SEPARATORS,
+} from './model/document.js';
 export type {
   BarcodeElement,
   ElementBase,
@@ -134,6 +141,7 @@ export type {
   LineElement,
   MatrixElement,
   RectangleElement,
+  Gs1Separator,
   TextAlignment,
   TextElement,
   RectangleFill,

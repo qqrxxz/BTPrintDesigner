@@ -103,8 +103,33 @@ export function collectVariables(text: string): VariableUse[] {
  * `@Barcode@` on it would be judged at nine characters wide instead of thirteen
  * digits, and fitting is the question the preview exists to answer.
  */
-export function substituteVariables(text: string): string {
-  return text.replace(DATAMOBILE_PATTERN, (whole) => findVariable(whole)?.sample ?? whole);
+export function substituteVariables(
+  text: string,
+  samples?: Readonly<Record<string, string>>,
+): string {
+  return text.replace(DATAMOBILE_PATTERN, (whole) => {
+    // A value set on the document wins: the catalogue's sample is a reasonable
+    // length, but only the person designing the label knows what their own
+    // product names and prices actually look like.
+    const chosen = sampleOverride(whole, samples);
+    if (chosen !== undefined) return chosen;
+    return findVariable(whole)?.sample ?? whole;
+  });
+}
+
+/** A value the document sets for this variable, matched the way names are. */
+function sampleOverride(
+  name: string,
+  samples: Readonly<Record<string, string>> | undefined,
+): string | undefined {
+  if (samples === undefined) return undefined;
+  const direct = samples[name];
+  if (direct !== undefined) return direct;
+  const lower = name.toLowerCase();
+  for (const [key, value] of Object.entries(samples)) {
+    if (key.toLowerCase() === lower) return value;
+  }
+  return undefined;
 }
 
 /** Every variable used anywhere in the document, in order of appearance. */
