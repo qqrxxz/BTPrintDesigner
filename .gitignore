@@ -6,3 +6,9 @@ out/
 dist-electron/
 release/
 packages/app/build/icon-preview.png
+
+# Skills installed by `npx skills add`: third-party text that lands in the
+# project rather than being part of it.
+.agents/
+.claude/skills/
+skills-lock.json
