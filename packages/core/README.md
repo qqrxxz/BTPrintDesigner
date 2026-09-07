@@ -86,15 +86,21 @@ first position, which `encodeDataMatrix` writes when `gs1` is set — that is wh
 a scanner reads back as the `]d2` identifier. QR's FNC1 mode is not implemented;
 nothing in this program asks for a GS1 QR yet.
 
-Between two identifiers of variable length GS1 wants ASCII 29, the group
-separator. Nobody can type one, so every printer and every piece of middleware
-spells it with a token of its own — `~1`, `_1`, `~d029`, `~]` — and which one
-arrives at the printer is a property of the setup. A GS1 Data Matrix element
-therefore records which token its data uses. The generated file keeps the token,
-because that is what the printer acts on; the preview and every measurement read
-it as the character it stands for, so the symbol on screen is the symbol that
-will be printed. An interpreter meeting a group separator in a Data Matrix
-payload encodes the symbol as GS1: a separator there means nothing else.
+Between two identifiers of variable length GS1 wants a separator: ASCII 29 in a
+Data Matrix, FNC1 again in a Code 128. Nobody can type either, so every printer
+and every piece of middleware spells it with a token of its own — `~1`, `_1`,
+`~d029`, `~]` — and which one arrives at the printer is a property of the setup.
+A GS1 element, Data Matrix or Code 128, therefore records which token its data
+uses. The generated file keeps the token, because that is what the printer acts
+on; the preview and every measurement read it as the separator it stands for, so
+the symbol on screen is the symbol that will be printed. `encodeCode128` with
+`gs1` turns a group separator in its payload into FNC1, because a control
+character there would be read as data by every scanner.
+
+An interpreter meeting a group separator in a Data Matrix payload encodes the
+symbol as GS1: a separator there means nothing else. ZPL's `^BC` says so
+outright — mode D is a GS1 payload — and CPCL calls the symbology `UCCEAN128`,
+which is what a GS1-128 is generated and imported as.
 
 ## The document and the code
 

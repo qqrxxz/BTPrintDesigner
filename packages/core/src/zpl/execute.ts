@@ -768,6 +768,9 @@ class Interpreter {
       case 'code128':
         // Only ^BC's automatic mode hunts for the shortest encoding; the
         // default mode stays in subset B however many digits it is given.
+        // Mode D is ^BC's way of saying the payload is GS1: FNC1 leads, and a
+        // separator in the data is FNC1 as well rather than a control code.
+        if (barcode.mode === 'D') return encodeCode128(data, { gs1: true });
         return encodeCode128(data, { subset: barcode.mode === 'A' ? 'auto' : 'B' });
       case 'code39':
         return encodeCode39(data, { wideRatio: ratio, checkDigit: barcode.checkDigit });

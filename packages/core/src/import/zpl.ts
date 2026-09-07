@@ -465,7 +465,11 @@ class Importer {
       return;
     }
 
-    const symbology = LINEAR_COMMANDS[command.name];
+    // ^BC's sixth parameter is the mode, and D there says the payload is GS1.
+    const symbology =
+      command.name === 'BC' && letterParameter(command, 5, 'N') === 'D'
+        ? ('gs1-128' as const)
+        : LINEAR_COMMANDS[command.name];
     if (!symbology) {
       this.reject(command, `The canvas does not offer a "^${command.name}" barcode.`, 'import.symbology', {
         symbology: `^${command.name}`,

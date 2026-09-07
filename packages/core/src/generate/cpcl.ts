@@ -1,5 +1,6 @@
 import { encodePdf417 } from '../barcode/pdf417/encode.js';
 import { BarcodeError } from '../barcode/types.js';
+import { applyGs1Separator } from '../model/gs1.js';
 import type {
   BarcodeElement,
   LabelDocument,
@@ -56,7 +57,7 @@ const SCALABLE_FONT = '7';
 
 const SYMBOLOGY_NAMES: Readonly<Record<BarcodeElement['symbology'], string | undefined>> = {
   code128: '128',
-  'gs1-128': '128',
+  'gs1-128': 'UCCEAN128',
   code39: '39',
   itf: 'I2OF5',
   ean13: 'EAN13',
@@ -310,7 +311,14 @@ class Generator {
   }
 
   private barcode(element: BarcodeElement): void {
-    const data = this.resolve(element.data, element);
+    const resolved = this.resolveFully(element.data, element);
+    // The file keeps the separator token; the preview reads it as FNC1's stand-in.
+    const data = this.flattened(
+      this.options.resolveVariables === true
+        ? applyGs1Separator(resolved.text, element.gs1Separator)
+        : resolved.text,
+      element,
+    );
     const name = SYMBOLOGY_NAMES[element.symbology];
     if (name === undefined) {
       this.issues.push({

@@ -46,9 +46,9 @@ for it. That value can be set: the catalogue's sample is a realistic length, but
 only the person designing the label knows whether their product names run to
 forty characters. What is typed there never reaches the exported file.
 
-A GS1 Data Matrix has one more setting: which token in its data stands for the
-separator between two application identifiers — `~1`, `_1`, `~d029`, `~]`, or
-none at all. The token goes to the printer as written, because that is what the
+A GS1 symbol — Data Matrix or GS1-128 — has one more setting: which token in its
+data stands for the separator between two application identifiers — `~1`, `_1`,
+`~d029`, `~]`, or none at all. The token goes to the printer as written, because that is what the
 printer acts on, and the preview reads it as the character it stands for.
 
 The code panel and both exports show the template, with the variables still in

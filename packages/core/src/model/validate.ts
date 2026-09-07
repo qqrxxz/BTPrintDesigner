@@ -238,6 +238,16 @@ function readElement(reader: Reader, value: unknown, path: string): LabelElement
         ...(value['wideRatio'] === undefined
           ? {}
           : { wideRatio: value['wideRatio'] === 2 ? (2 as const) : (3 as const) }),
+        ...(value['gs1Separator'] === undefined
+          ? {}
+          : {
+              gs1Separator: reader.oneOf(
+                value['gs1Separator'],
+                `${path}.gs1Separator`,
+                GS1_SEPARATORS,
+                'none',
+              ),
+            }),
         ...(value['checkDigit'] === undefined ? {} : { checkDigit: value['checkDigit'] === true }),
       };
     case 'matrix':

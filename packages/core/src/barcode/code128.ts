@@ -60,6 +60,8 @@ const SWITCH: Record<Subset, Partial<Record<Subset, number>>> = {
  * makes a GS1-128.
  */
 export const FNC1 = 'ñ';
+/** ASCII 29: what a printer's data carries where GS1 wants a separator. */
+const GROUP_SEPARATOR = '\u001d';
 export const FNC2 = 'ò';
 export const FNC3 = 'ó';
 export const FNC4 = 'ô';
@@ -257,7 +259,13 @@ function encodeInSubset(data: string, subset: 'A' | 'B'): { values: number[]; st
 export function encodeCode128(data: string, options: Code128Options = {}): LinearSymbol {
   if (data.length === 0) throw new BarcodeError('Code 128 needs at least one character');
 
-  const payload = options.gs1 ? FNC1 + data : data;
+  // In a GS1 payload the separator between two application identifiers of
+  // variable length is FNC1, not the group separator character. Data written
+  // for a printer carries the character — it is the one thing every setup can
+  // agree on — so it is translated here rather than encoded as a control code
+  // no scanner would read as a separator.
+  const separated = options.gs1 ? data.split(GROUP_SEPARATOR).join(FNC1) : data;
+  const payload = options.gs1 ? FNC1 + separated : separated;
   for (const character of payload) {
     const code = character.codePointAt(0)!;
     if (code > 127 && FUNCTION_VALUES[character] === undefined) {

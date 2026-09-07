@@ -289,7 +289,12 @@ class Generator {
   }
 
   private barcode(element: BarcodeElement): void {
-    const data = this.resolve(element.data, element);
+    const resolved = this.resolveFully(element.data, element);
+    // The file keeps the separator token; the preview reads it as FNC1's stand-in.
+    const data =
+      this.options.resolveVariables === true
+        ? applyGs1Separator(resolved.text, element.gs1Separator)
+        : resolved.text;
     const narrow = this.snap(element.moduleWidth, 1, 'Barcode module width', element);
     const height = Math.max(1, this.dots(element.height));
     const ratio = element.wideRatio ?? 3;
@@ -323,7 +328,7 @@ class Generator {
         parameters = `${facing},${height},${line},N`;
     }
 
-    this.lines.push(`^FO${x},${y}^${command}${parameters}${fieldData(data)}^FS`);
+    this.lines.push(`^FO${x},${y}^${command}${parameters}${this.symbolData(data, element)}^FS`);
   }
 
   /**
@@ -335,7 +340,7 @@ class Generator {
    * anything else in the payload that ZPL would read as a command is reported
    * rather than quietly escaped into something the printer would print.
    */
-  private symbolData(data: string, element: MatrixElement): string {
+  private symbolData(data: string, element: MatrixElement | BarcodeElement): string {
     const token = element.gs1Separator;
     if (token === undefined || token === 'none' || !data.includes(token)) {
       return fieldData(data);

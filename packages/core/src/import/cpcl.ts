@@ -69,6 +69,7 @@ const TEXT_ROTATIONS: Readonly<Record<string, Rotation>> = {
 
 const LINEAR_TYPES: Readonly<Record<string, LinearSymbology>> = {
   '128': 'code128',
+  UCCEAN128: 'gs1-128',
   '39': 'code39',
   I2OF5: 'itf',
   UPCA: 'upca',

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { encodeCode128, FNC1 } from '../src/barcode/code128.js';
+import { renderLinear } from '../src/barcode/render.js';
+import { BarcodeFormat, decode } from './helpers/decode.js';
+import { generateCpcl } from '../src/generate/cpcl.js';
 import { generateTspl } from '../src/generate/tspl.js';
 import { generateZpl } from '../src/generate/zpl.js';
+import { renderCpcl } from '../src/cpcl/execute.js';
 import { importTspl } from '../src/import/tspl.js';
+import { importZpl } from '../src/import/zpl.js';
 import { createDocument, GROUP_SEPARATOR, type LabelDocument } from '../src/model/document.js';
 import { applyGs1Separator } from '../src/model/gs1.js';
 import { parseDocument, serializeDocument } from '../src/model/validate.js';
@@ -149,5 +155,76 @@ describe('a value set for a variable', () => {
     const chosen = { ...withVariable, variableSamples: { '@Name1@': 'Кабель' } };
     const read = parseDocument(JSON.parse(serializeDocument(chosen))).document!;
     expect(read.variableSamples).toEqual({ '@Name1@': 'Кабель' });
+  });
+});
+
+describe('GS1-128, which spells the separator FNC1', () => {
+  const barcodeLabel = (data = PAYLOAD): LabelDocument =>
+    createDocument({
+      width: 60,
+      height: 40,
+      elements: [
+        {
+          id: 'b1',
+          type: 'barcode',
+          x: 4,
+          y: 4,
+          symbology: 'gs1-128',
+          data,
+          moduleWidth: 0.25,
+          height: 12,
+          gs1Separator: '~1',
+        },
+      ],
+    });
+
+  it('keeps the token in the file and writes the character in the preview', () => {
+    expect(generateTspl(barcodeLabel(), { dpi: 203 }).source).toContain('~1');
+    const preview = generateTspl(barcodeLabel(), { dpi: 203, resolveVariables: true }).source;
+    expect(preview).toContain(GROUP_SEPARATOR);
+    expect(preview).not.toContain('~1');
+  });
+
+  it('draws, with the separator encoded as FNC1 rather than a control code', () => {
+    const preview = generateTspl(barcodeLabel(), { dpi: 203, resolveVariables: true }).source;
+    const drawn = renderTspl(preview, { fonts: fonts(), dpi: 203 });
+    expect(drawn.diagnostics.filter((entry) => entry.severity === 'error')).toEqual([]);
+
+    // The separator in the data and FNC1 written out by hand are the same
+    // symbol, which is what "translated rather than encoded" means.
+    const fromSeparator = encodeCode128(PAYLOAD.replace('~1', GROUP_SEPARATOR), { gs1: true });
+    const fromFunctionCode = encodeCode128(PAYLOAD.replace('~1', FNC1), { gs1: true });
+    expect(fromSeparator.modules).toEqual(fromFunctionCode.modules);
+
+  });
+
+  it('scans: an independent decoder reads the payload back', () => {
+    const symbol = encodeCode128(PAYLOAD.replace('~1', GROUP_SEPARATOR), { gs1: true });
+    const bitmap = renderLinear(symbol, { moduleWidth: 3, height: 60 });
+    // ZXing drops the function codes from the text it returns, so what comes
+    // back is the payload without its separators.
+    expect(decode(bitmap, [BarcodeFormat.CODE_128])).toBe(PAYLOAD.replace('~1', ''));
+  });
+
+  it('leaves the token unescaped in ZPL, where a tilde would otherwise be hidden', () => {
+    const { source } = generateZpl(barcodeLabel(), { dpi: 203 });
+    expect(source).toContain('~1');
+    expect(source).not.toContain('_7E');
+  });
+
+  it('is read back as GS1-128 from ^BC mode D', () => {
+    const { source } = generateZpl(barcodeLabel(), { dpi: 203 });
+    const imported = importZpl(source, { dpi: 203 });
+    expect((imported.document.elements[0] as { symbology: string }).symbology).toBe('gs1-128');
+  });
+
+  it('goes to CPCL as UCCEAN128, which is what CPCL calls it', () => {
+    const { source } = generateCpcl(barcodeLabel(), { dpi: 203 });
+    expect(source).toContain('UCCEAN128');
+    const drawn = renderCpcl(
+      generateCpcl(barcodeLabel(), { dpi: 203, resolveVariables: true }).source,
+      { fonts: fonts(), dpi: 203 },
+    );
+    expect(drawn.diagnostics.filter((entry) => entry.severity === 'error')).toEqual([]);
   });
 });

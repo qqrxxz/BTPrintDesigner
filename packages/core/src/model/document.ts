@@ -162,6 +162,14 @@ export interface BarcodeElement extends ElementBase {
   /** Wide-to-narrow ratio, for the two-width symbologies. */
   readonly wideRatio?: 2 | 3;
   readonly checkDigit?: boolean;
+  /**
+   * GS1-128 only: which token in the data stands for the separator.
+   *
+   * The same arrangement a GS1 Data Matrix has, and for the same reason — see
+   * `Gs1Separator`. In Code 128 the separator is FNC1 rather than the group
+   * separator character, but what is written in the data is the same token.
+   */
+  readonly gs1Separator?: Gs1Separator;
 }
 
 export type MatrixSymbology = 'qr' | 'datamatrix' | 'gs1-datamatrix' | 'pdf417';

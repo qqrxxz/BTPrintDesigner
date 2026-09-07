@@ -855,6 +855,37 @@ export class App {
     }
   }
 
+  /**
+   * Which token in the data stands for the GS1 separator.
+   *
+   * Only the GS1 symbologies have application identifiers to separate, so this
+   * appears for them and nowhere else. Data Matrix wants the group separator
+   * character and Code 128 wants FNC1, but what is written in the data — and
+   * what the printer is set up to act on — is the same token either way.
+   */
+  private gs1SeparatorField(
+    container: HTMLElement,
+    text: Strings,
+    update: (change: (element: LabelElement) => LabelElement) => void,
+  ): void {
+    const element = this.store.selected() as BarcodeElement | MatrixElement;
+    container.append(
+      field(
+        text.gs1Separator,
+        select(
+          element.gs1Separator ?? 'none',
+          GS1_SEPARATORS.map((value) => ({
+            value,
+            label: value === 'none' ? text.gs1SeparatorNone : value,
+          })),
+          (value) =>
+            update((e) => ({ ...(e as BarcodeElement | MatrixElement), gs1Separator: value })),
+          { title: text.gs1SeparatorHint },
+        ),
+      ),
+    );
+  }
+
   private barcodeProperties(
     container: HTMLElement,
     text: Strings,
@@ -866,9 +897,16 @@ export class App {
         text.symbology,
         select(
           element.symbology,
-          (
-            ['code128', 'gs1-128', 'code39', 'itf', 'ean13', 'ean8', 'upca', 'upce'] as const
-          ).map((value) => ({ value, label: value })),
+          [
+            { value: 'code128' as const, label: 'Code 128' },
+            { value: 'gs1-128' as const, label: 'GS1-128' },
+            { value: 'code39' as const, label: 'Code 39' },
+            { value: 'itf' as const, label: 'ITF' },
+            { value: 'ean13' as const, label: 'EAN-13' },
+            { value: 'ean8' as const, label: 'EAN-8' },
+            { value: 'upca' as const, label: 'UPC-A' },
+            { value: 'upce' as const, label: 'UPC-E' },
+          ],
           (value) => update((e) => ({ ...(e as BarcodeElement), symbology: value })),
         ),
       ),
@@ -881,6 +919,11 @@ export class App {
         (value) => update((e) => ({ ...(e as BarcodeElement), data: value })),
         'replace',
       ),
+    );
+
+    if (element.symbology === 'gs1-128') this.gs1SeparatorField(container, text, update);
+
+    container.append(
       field(
         `${text.moduleWidth}, mm`,
         numberInput(
@@ -935,23 +978,7 @@ export class App {
       ),
     );
 
-    if (element.symbology === 'gs1-datamatrix') {
-      // Only a GS1 symbol has application identifiers to separate.
-      container.append(
-        field(
-          text.gs1Separator,
-          select(
-            element.gs1Separator ?? 'none',
-            GS1_SEPARATORS.map((value) => ({
-              value,
-              label: value === 'none' ? text.gs1SeparatorNone : value,
-            })),
-            (value) => update((e) => ({ ...(e as MatrixElement), gs1Separator: value })),
-            { title: text.gs1SeparatorHint },
-          ),
-        ),
-      );
-    }
+    if (element.symbology === 'gs1-datamatrix') this.gs1SeparatorField(container, text, update);
 
     container.append(
       field(

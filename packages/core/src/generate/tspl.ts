@@ -299,7 +299,12 @@ class Generator {
   }
 
   private barcode(element: BarcodeElement): void {
-    const data = this.resolve(element.data, element);
+    const resolved = this.resolveFully(element.data, element);
+    // The file keeps the separator token; the preview reads it as FNC1's stand-in.
+    const data =
+      this.options.resolveVariables === true
+        ? applyGs1Separator(resolved.text, element.gs1Separator)
+        : resolved.text;
     const narrow = this.snap(element.moduleWidth, 1, 'Barcode module width', element);
     const ratio = element.wideRatio ?? 3;
     const wide = narrow * (CHECK_DIGIT_NAMES[element.symbology] ? ratio : 2);

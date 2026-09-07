@@ -74,6 +74,7 @@ const TEXT_ROTATIONS: Readonly<Record<string, Rotation>> = {
 
 const LINEAR_TYPES: Readonly<Record<string, string>> = {
   '128': 'code128',
+  UCCEAN128: 'gs1-128',
   '39': 'code39',
   I2OF5: 'itf',
   UPCA: 'upca',
@@ -628,6 +629,8 @@ function encodeLinear(kind: string, data: string, ratio: 2 | 3): LinearSymbol {
   switch (kind) {
     case 'code128':
       return encodeCode128(data);
+    case 'gs1-128':
+      return encodeCode128(data, { gs1: true });
     case 'code39':
       return encodeCode39(data, { wideRatio: ratio });
     case 'ean13':
