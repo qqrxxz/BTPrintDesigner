@@ -14,6 +14,16 @@ describe('translating engine messages', () => {
     expect(translate('ru', 'Untranslated', 'no.such.code')).toBe('Untranslated');
   });
 
+  it('names the DataMobile operation the way its settings screen does', () => {
+    // The engine reports the vendor's identifier; a reader knows the operation
+    // by the name on the settings screen, in their own language.
+    const values = { name: '@Price@', operation: 'doc' };
+    expect(translate('ru', 'x', 'generate.variable-unavailable', values)).toContain(
+      'Печать документа',
+    );
+    expect(translate('ru', 'x', 'generate.variable-unavailable', values)).not.toContain('doc');
+  });
+
   it('leaves English alone', () => {
     expect(translate('en', 'Unknown command "FOO"', 'tspl.unknown-command', { command: 'FOO' })).toBe(
       'Unknown command "FOO"',

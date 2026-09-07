@@ -75,6 +75,16 @@ export class App {
 
   constructor(root: HTMLElement) {
     this.root = root;
+    // The code area outlives every render, so it is wired up once. Attaching
+    // these inside the panel builder would add another pair of handlers on
+    // every redraw.
+    this.codeArea.addEventListener('focus', () => {
+      this.editingCode = true;
+    });
+    this.codeArea.addEventListener('blur', () => {
+      this.editingCode = false;
+    });
+    this.codeArea.addEventListener('input', () => this.codeChanged());
     this.store.subscribe(() => this.render());
     window.btpd?.onMenu((action) => void this.menu(action));
     window.addEventListener('keydown', (event) => this.keyboard(event));
@@ -174,6 +184,14 @@ export class App {
     const name = state.document.name || text.label;
     void window.btpd?.setTitle(`${name}${state.dirty ? ` — ${text.unsaved}` : ''}`);
 
+    // Every keystroke in the code panel regenerates the document, and the
+    // panels are rebuilt wholesale — which takes the code area out of the page
+    // and the focus with it. Without this the field would take one character
+    // and then quietly stop being the focus.
+    const editing = this.editingCode || document.activeElement === this.codeArea;
+    const caret = { start: this.codeArea.selectionStart, end: this.codeArea.selectionEnd };
+    const scroll = this.codeArea.scrollTop;
+
     clear(this.root);
     this.root.append(
       this.toolbar(text),
@@ -188,7 +206,14 @@ export class App {
 
     paint(this.canvas, derived.bitmap);
     this.placeOverlays(derived);
-    if (!this.editingCode) this.codeArea.value = derived.code;
+    if (editing) {
+      this.editingCode = true;
+      this.codeArea.focus({ preventScroll: true });
+      this.codeArea.setSelectionRange(caret.start, caret.end);
+      this.codeArea.scrollTop = scroll;
+    } else {
+      this.codeArea.value = derived.code;
+    }
   }
 
   private toolbar(text: Strings): HTMLElement {
@@ -348,14 +373,6 @@ export class App {
   }
 
   private rightPanel(text: Strings, _derived: Derived): HTMLElement {
-    this.codeArea.addEventListener('focus', () => {
-      this.editingCode = true;
-    });
-    this.codeArea.addEventListener('blur', () => {
-      this.editingCode = false;
-    });
-    this.codeArea.oninput = () => this.codeChanged();
-
     return h(
       'aside',
       { class: 'panel right' },
