@@ -44,6 +44,26 @@ resolutions and is the standing check that this holds.
 | `util/units` | Millimetre, inch and dot conversions for 203 / 300 / 600 dpi |
 | `barcode/*` | Code 128, Code 39, ITF, EAN, UPC, QR, Data Matrix, PDF417 — modules, not pictures |
 | `tspl/*` | TSPL parser and interpreter: printer commands in, label image out |
+| `model/*` | The label document: language-neutral, millimetres, placeholders |
+| `generate/*` | Document to printer code; the only place that knows about dots |
+
+## The document and the code
+
+The document model is the source of truth a project file holds. It is
+language-neutral and measured in millimetres, so one design exports to TSPL,
+ZPL or CPCL and survives being retargeted from 203 dpi to 600.
+
+`generateTspl` turns a document into printer code. It is the only place that
+knows about dots, and it says so when snapping to the dot grid moves something
+that matters — a barcode module rounded from 0.24 mm to two dots is a different
+barcode, and the designer should hear it here rather than at the scanner. What
+the language cannot express is reported rather than approximated: TSPL has no
+diagonal line command, so a diagonal line is an error with a reason, not a
+staircase of bars.
+
+The preview path is document to code to image, never document to image. The
+picture on screen is therefore rasterised from the same text that reaches the
+printer.
 
 ## Reading TSPL
 
@@ -76,10 +96,11 @@ a dot disappear. The size ladder in the sample label shows where that happens.
 ## Commands
 
 ```
-npm test         # 436 tests: raster, barcodes, TSPL
+npm test         # 493 tests: raster, barcodes, TSPL, model, generator
 npm run build    # type declarations and JS into dist/
 npm run sample   # renders out/sample-{203,300,600}dpi.png and the barcode sheet
 npm run tspl     # renders the built-in TSPL sample, or a file you name
+npm run model    # document -> TSPL -> image, all three written to out/
 ```
 
 ## Fonts

@@ -69,6 +69,39 @@ export type { DrawTextOptions, TextAnchor, TextMetrics, TextStyle } from './text
 
 export * from './tspl/index.js';
 
+export { createDocument, DOCUMENT_VERSION, elementBounds } from './model/document.js';
+export type {
+  BarcodeElement,
+  ElementBase,
+  LabelDocument,
+  LabelElement,
+  LineElement,
+  MatrixElement,
+  RectangleElement,
+  TextAlignment,
+  TextElement,
+  TextStyleSpec,
+} from './model/document.js';
+export type {
+  LinearSymbology as ModelLinearSymbology,
+  MatrixSymbology as ModelMatrixSymbology,
+} from './model/document.js';
+export {
+  documentPlaceholders,
+  elementText,
+  findPlaceholders,
+  substitute,
+} from './model/placeholders.js';
+export type { SubstitutionResult } from './model/placeholders.js';
+export { parseDocument, serializeDocument } from './model/validate.js';
+export type { DocumentParseResult, ValidationIssue } from './model/validate.js';
+export { generateTspl } from './generate/tspl.js';
+export type {
+  GenerationIssue,
+  TsplGenerateOptions,
+  TsplGenerateResult,
+} from './generate/tspl.js';
+
 export {
   applyMatrix,
   clamp,

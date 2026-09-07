@@ -46,5 +46,30 @@ export function decode(
   return reader.decode(binary).getText();
 }
 
-/** Pads a symbol image with white so the decoder has room to find edges. */
+/**
+ * Decodes a symbol at a known place on a larger image.
+ *
+ * ZXing's Data Matrix detector starts its search at the centre of the image and
+ * expands outward, so a small symbol in the corner of a big label is invisible
+ * to it however crisp it is. That is a limit of the reader, not of the symbol:
+ * the same modules decode as soon as the image is cropped around them. Tests
+ * that place a symbol on a full label therefore say where it is.
+ */
+export function decodeRegion(
+  bitmap: Bitmap1,
+  region: { x: number; y: number; width: number; height: number },
+  formats?: BarcodeFormat[],
+  margin = 8,
+): string {
+  return decode(
+    bitmap.crop(
+      region.x - margin,
+      region.y - margin,
+      region.width + margin * 2,
+      region.height + margin * 2,
+    ),
+    formats,
+  );
+}
+
 export { BarcodeFormat };

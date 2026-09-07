@@ -20,7 +20,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "sample": "npm run build && node tools/render-sample.mjs",
-    "tspl": "npm run build && node tools/render-tspl.mjs"
+    "tspl": "npm run build && node tools/render-tspl.mjs",
+    "model": "npm run build && node tools/render-model.mjs"
   },
   "dependencies": {
     "opentype.js": "^1.3.4"
