@@ -1,4 +1,5 @@
 import type { Rotation } from '../bitmap/Bitmap1.js';
+import type { EncodingChoice } from '../printer/encoding.js';
 import type { DataMobileOperation } from '../datamobile/variables.js';
 
 /**
@@ -60,6 +61,14 @@ export interface LabelDocument {
    * What is set here wins over the catalogue's own sample.
    */
   readonly variableSamples?: Readonly<Record<string, string>>;
+  /**
+   * The bytes the exported printer file is written in.
+   *
+   * `auto`, which is the default, believes what the code declares — TSPL's
+   * `CODEPAGE`, ZPL's `^CI28`, CPCL's `ENCODING` — and falls back to UTF-8
+   * when it declares nothing.
+   */
+  readonly encoding?: EncodingChoice;
 }
 
 export interface ElementBase {

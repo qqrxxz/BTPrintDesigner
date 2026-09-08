@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectLanguage, DATAMOBILE_OPERATIONS } from '@btpd/core';
+import { DATAMOBILE_OPERATIONS, detectLanguage, encodeText, resolveEncoding } from '@btpd/core';
 import { importCpcl } from '../../core/src/import/cpcl.js';
 import { importTspl } from '../../core/src/import/tspl.js';
 import { importZpl } from '../../core/src/import/zpl.js';
@@ -52,6 +52,27 @@ describe('the bundled templates', () => {
     for (const operation of DATAMOBILE_OPERATIONS) {
       if (operation.id === 'all') continue;
       expect(templatesFor(operation.id).length, operation.id).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('exporting a template again', () => {
+  it('writes the bytes the template itself asks for', () => {
+    // Every TSC template says CODEPAGE 1251, and a printer told that and then
+    // handed UTF-8 prints nonsense where the Russian was.
+    for (const entry of STOCK_TEMPLATES) {
+      const encoding = resolveEncoding(undefined, entry.source);
+      const declared = /CODEPAGE\s+1251/i.test(entry.source);
+      expect(encoding, entry.file).toBe(declared ? 'windows-1251' : 'utf-8');
+    }
+  });
+
+  it('loses nothing on the way out', () => {
+    for (const entry of STOCK_TEMPLATES) {
+      const encoding = resolveEncoding(undefined, entry.source);
+      const { bytes, unsupported } = encodeText(entry.source, encoding);
+      expect(unsupported, entry.file).toEqual([]);
+      expect(new TextDecoder(encoding).decode(bytes), entry.file).toBe(entry.source);
     }
   });
 });

@@ -1,5 +1,6 @@
 import type { Rotation } from '../bitmap/Bitmap1.js';
 import { DATAMOBILE_OPERATIONS, type DataMobileOperation } from '../datamobile/variables.js';
+import { ENCODING_CHOICES } from '../printer/encoding.js';
 import {
   DOCUMENT_VERSION,
   GS1_SEPARATORS,
@@ -386,6 +387,9 @@ export function parseDocument(value: unknown): DocumentParseResult {
     elements,
     ...(Object.keys(sampleData).length > 0 ? { sampleData } : {}),
     ...(Object.keys(variableSamples).length > 0 ? { variableSamples } : {}),
+    ...(value['encoding'] === undefined
+      ? {}
+      : { encoding: reader.oneOf(value['encoding'], 'encoding', ENCODING_CHOICES, 'auto') }),
   };
 
   return { document, issues: reader.issues };

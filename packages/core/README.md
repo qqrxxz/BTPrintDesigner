@@ -120,6 +120,13 @@ before the label — the one that registers a font — is setup rather than a
 second label. Thirty-seven of the vendor's forty-two files now come back as
 designs; the five that do not are in languages this program does not speak.
 
+Encoding is the other half of reading somebody else's file. `declaredEncoding`
+reads what the code says about itself — TSPL's `CODEPAGE`, ZPL's `^CI28`,
+CPCL's `ENCODING` — and `encodeText` writes the bytes, naming any character the
+page has no room for rather than dropping it. The Windows-1251 table is built
+by asking the platform's own decoder what each byte means, so it is nobody's
+hand-typed magic numbers.
+
 ## The document and the code
 
 The document model is the source of truth a project file holds. It is

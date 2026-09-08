@@ -51,6 +51,15 @@ UTF-8 is tried strictly first and 1251 is the fallback. A file in a language
 this program does not speak, Godex EZPL or Honeywell Fingerprint, is refused
 with its name rather than read as forty broken TSPL commands.
 
+## The bytes that leave
+
+A printer file is bytes, and which bytes matters: a TSC told `CODEPAGE 1251`
+and handed UTF-8 prints nonsense where the Russian was. The label carries the
+choice — "as declared", UTF-8, or 1251 — and "as declared" believes the code
+itself, falling back to UTF-8 when the code says nothing. A character the
+encoding has no byte for is named on the way out rather than dropped in
+silence.
+
 ## Templates
 
 The toolbar's templates button opens DataMobile's own stock templates, grouped

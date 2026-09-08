@@ -104,6 +104,10 @@ export interface Strings {
   readonly templatesHint: string;
   readonly close: string;
   readonly noTemplates: string;
+  readonly encoding: string;
+  readonly encodingAuto: string;
+  readonly encodingHint: string;
+  readonly encodingUnsupported: string;
 }
 
 const en: Strings = {
@@ -212,6 +216,13 @@ const en: Strings = {
   templatesHint: 'The templates DataMobile ships, to start from.',
   close: 'Close',
   noTemplates: 'Nothing for this operation.',
+  encoding: 'File encoding',
+  encodingAuto: 'As declared',
+  encodingHint:
+    'The bytes the exported file is written in. “As declared” believes the code itself — ' +
+    'TSPL’s CODEPAGE, ZPL’s ^CI28 — and writes UTF-8 when it says nothing. A printer told ' +
+    'CODEPAGE 1251 and handed UTF-8 prints nonsense where the Russian was.',
+  encodingUnsupported: 'This encoding has no place for:',
 };
 
 const ru: Strings = {
@@ -320,6 +331,13 @@ const ru: Strings = {
   templatesHint: 'Стоковые шаблоны DataMobile, от которых можно оттолкнуться.',
   close: 'Закрыть',
   noTemplates: 'Для этой операции ничего нет.',
+  encoding: 'Кодировка файла',
+  encodingAuto: 'Как объявлено',
+  encodingHint:
+    'В каких байтах записывается выгружаемый файл. «Как объявлено» верит самому коду — ' +
+    'CODEPAGE у TSPL, ^CI28 у ZPL — и пишет UTF-8, если код молчит. Принтеру, которому ' +
+    'сказали CODEPAGE 1251, а дали UTF-8, вместо русского напечатает кашу.',
+  encodingUnsupported: 'В этой кодировке нет места для:',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

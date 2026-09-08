@@ -7,12 +7,15 @@ import {
   documentPlaceholders,
   detectLanguage,
   documentVariables,
+  encodeText,
+  ENCODING_CHOICES,
   exampleFor,
   findVariable,
   isAvailable,
   encodePng,
   isProjectFile,
   parseDocument,
+  resolveEncoding,
   PRINTER_PROFILES,
   profilesForLanguage,
   GS1_SEPARATORS,
@@ -25,6 +28,7 @@ import {
   type DataMobileOperation,
   type LabelDocument,
   type LabelElement,
+  type EncodingChoice,
   type MatrixElement,
   type Preset,
   type RectangleElement,
@@ -744,6 +748,19 @@ export class App {
         `${text.height}, mm`,
         numberInput(state.document.height, (value) =>
           this.store.edit((document) => ({ ...document, height: Math.max(5, value) })),
+        ),
+      ),
+      field(
+        text.encoding,
+        select(
+          state.document.encoding ?? 'auto',
+          ENCODING_CHOICES.map((value) => ({
+            value,
+            label: value === 'auto' ? text.encodingAuto : value === 'utf-8' ? 'UTF-8' : '1251',
+          })),
+          (value) =>
+            this.store.edit((document) => ({ ...document, encoding: value as EncodingChoice })),
+          { title: text.encodingHint },
         ),
       ),
       field(
@@ -1546,11 +1563,23 @@ export class App {
 
   private async exportCode(): Promise<void> {
     const derived = this.derive();
+    const state = this.store.get();
+    const text = this.text();
     const language = languageOf(this.store.profile());
     const extension = FILE_EXTENSIONS[language];
+
+    // The file is bytes, and which bytes matters: a printer told CODEPAGE 1251
+    // and handed UTF-8 prints mojibake. Unless the document says otherwise,
+    // the code's own declaration decides.
+    const encoding = resolveEncoding(state.document.encoding, derived.code);
+    const { bytes, unsupported } = encodeText(derived.code, encoding);
+    if (unsupported.length > 0) {
+      window.alert(`${text.encodingUnsupported} ${unsupported.join(' ')}`);
+    }
+
     await window.btpd?.exportFile({
-      suggestedName: `${this.store.get().document.name || 'label'}.${extension}`,
-      content: derived.code,
+      suggestedName: `${state.document.name || 'label'}.${extension}`,
+      content: bytes,
       extensions: [extension, 'txt'],
     });
   }
