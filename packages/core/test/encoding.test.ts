@@ -13,8 +13,9 @@ describe('what the code declares', () => {
     expect(declaredEncoding('CODEPAGE UTF-8\nCLS')).toBe('utf-8');
   });
 
-  it('reads ZPL"s ^CI28 as Unicode', () => {
+  it('reads ZPL"s ^CI: 28 is UTF-8, 33 is Windows-1251', () => {
     expect(declaredEncoding('^XA\n^CI28\n^XZ')).toBe('utf-8');
+    expect(declaredEncoding('^XA\n^CI33\n^XZ')).toBe('windows-1251');
   });
 
   it('reads CPCL"s ENCODING', () => {
@@ -23,6 +24,13 @@ describe('what the code declares', () => {
 
   it('says nothing when the code says nothing', () => {
     expect(declaredEncoding('^XA\n^FO10,10^FDx^FS\n^XZ')).toBeUndefined();
+  });
+
+  it('believes the declaration its own language uses', () => {
+    // A design retargeted from a TSC to a Zebra keeps the TSPL preamble it was
+    // imported with; in a ZPL job it is the ^CI that applies.
+    expect(declaredEncoding('^XA\n^CI28\nCODEPAGE 1251\n^XZ')).toBe('utf-8');
+    expect(declaredEncoding('SIZE 60 mm, 40 mm\nCODEPAGE 1251\nCLS')).toBe('windows-1251');
   });
 
   it('is what auto follows, with UTF-8 for silence', () => {
@@ -114,16 +122,25 @@ describe('the code says what the file is written in', () => {
     expect(generateTspl(label(), { dpi: 203 }).source).toContain('CODEPAGE 1251');
   });
 
-  it('says UTF-8 in ZPL with ^CI28, and guesses at nothing else', () => {
+  it('names the character set in ZPL: 28 for UTF-8, 33 for 1251', () => {
     expect(generateZpl(label('utf-8'), { dpi: 203 }).source).toContain('^CI28');
-    // ZPL has no number here for 1251 that is worth guessing at.
-    expect(generateZpl(label('windows-1251'), { dpi: 203 }).source).not.toContain('^CI');
+    expect(generateZpl(label('windows-1251'), { dpi: 203 }).source).toContain('^CI33');
   });
 
-  it('reads back what it wrote', () => {
+  it('leaves the ZPL code alone on "as declared"', () => {
+    const source = generateZpl(label('auto'), { dpi: 203 }).source;
+    expect(source).not.toContain('^CI28');
+    expect(source).not.toContain('^CI33');
+  });
+
+  it('reads back what it wrote, in either language', () => {
     for (const encoding of ['utf-8', 'windows-1251'] as const) {
-      const source = generateTspl(label(encoding), { dpi: 203 }).source;
-      expect(declaredEncoding(source), encoding).toBe(encoding);
+      expect(declaredEncoding(generateTspl(label(encoding), { dpi: 203 }).source), encoding).toBe(
+        encoding,
+      );
+      expect(declaredEncoding(generateZpl(label(encoding), { dpi: 203 }).source), encoding).toBe(
+        encoding,
+      );
     }
   });
 });

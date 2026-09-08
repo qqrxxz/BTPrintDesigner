@@ -129,20 +129,21 @@ class Generator {
 
   generate(): void {
     const setup = this.options.includeSetup ?? true;
-    // ^CI28 is ZPL's way of saying the field data is UTF-8. There is no number
-    // here for Windows-1251 that this program is prepared to guess at, so a
-    // 1251 file is written in 1251 bytes and the code is left to say what it
-    // already said — which is what the printer's own setting decides.
-    const utf8 = this.document.encoding === 'utf-8';
+    // ^CI names the character set the field data is in: 28 is UTF-8, 33 is
+    // Windows-1251. Whichever the document asks for is written here, and the
+    // one the code carried before is dropped rather than left to contradict
+    // it. On "as declared" the code keeps what it already said.
+    const chosen = this.document.encoding;
+    const declares = chosen === 'utf-8' || chosen === 'windows-1251';
     const preamble = (this.document.preamble ?? []).filter(
-      (line) => !utf8 || !/\^CI\d+/i.test(line),
+      (line) => !declares || !/\^CI\d+/i.test(line),
     );
 
     this.lines.push('^XA');
     if (setup) {
       this.lines.push(`^PW${this.dots(this.document.width)}`);
       this.lines.push(`^LL${this.dots(this.document.height)}`);
-      if (utf8) this.lines.push('^CI28');
+      if (declares) this.lines.push(chosen === 'utf-8' ? '^CI28' : '^CI33');
       this.lines.push(...preamble);
     }
 

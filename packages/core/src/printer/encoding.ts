@@ -17,28 +17,47 @@ export const ENCODING_CHOICES: readonly EncodingChoice[] = ['auto', 'utf-8', 'wi
 /**
  * The encoding the code declares, if it declares one.
  *
- * TSPL says `CODEPAGE 1251`, ZPL says `^CI28` for Unicode, and CPCL says
- * `ENCODING UTF-8`. Anything else is silence, and silence is not a declaration
+ * TSPL says `CODEPAGE 1251`, ZPL says `^CI28` for UTF-8 and `^CI33` for
+ * Windows-1251, and CPCL says `ENCODING UTF-8`. Anything else is silence, and silence is not a declaration
  * of UTF-8 — it is a reason to ask the person who knows the printer.
  */
 export function declaredEncoding(source: string): TextEncoding | undefined {
-  const codepage = /^[ \t]*CODEPAGE[ \t]+([A-Za-z0-9-]+)/im.exec(source);
-  if (codepage) {
-    const page = codepage[1]!.toUpperCase();
-    if (page === '1251' || page === 'WINDOWS-1251' || page === 'CP1251') return 'windows-1251';
-    if (page === 'UTF-8' || page === 'UTF8') return 'utf-8';
+  // A file carries the declaration its own language uses. A ZPL job that still
+  // has a TSPL preamble in it — a design retargeted from one printer to the
+  // other — would otherwise be read by the line that no longer applies to it.
+  const readers = /\^XA\b/i.test(source)
+    ? [zebraCharacterSet, codePage, encodingCommand]
+    : [codePage, zebraCharacterSet, encodingCommand];
+  for (const reader of readers) {
+    const found = reader(source);
+    if (found !== undefined) return found;
   }
+  return undefined;
+}
 
-  // ^CI28 is Zebra's "the field data is UTF-8"; the lower numbers are the
-  // single-byte pages, of which 1251 is not one this program can name.
+/** TSPL: `CODEPAGE 1251`. */
+function codePage(source: string): TextEncoding | undefined {
+  const match = /^[ \t]*CODEPAGE[ \t]+([A-Za-z0-9-]+)/im.exec(source);
+  return match === undefined || match === null ? undefined : named(match[1]!);
+}
+
+/** ZPL: `^CI28` is UTF-8, `^CI33` is Windows-1251. */
+function zebraCharacterSet(source: string): TextEncoding | undefined {
   if (/\^CI28\b/i.test(source)) return 'utf-8';
+  if (/\^CI33\b/i.test(source)) return 'windows-1251';
+  return undefined;
+}
 
-  const encoding = /^[ \t]*ENCODING[ \t]+([A-Za-z0-9-]+)/im.exec(source);
-  if (encoding) {
-    const name = encoding[1]!.toUpperCase();
-    if (name === 'UTF-8' || name === 'UTF8') return 'utf-8';
-    if (name === '1251' || name === 'WINDOWS-1251' || name === 'CP1251') return 'windows-1251';
-  }
+/** CPCL: `ENCODING UTF-8`. */
+function encodingCommand(source: string): TextEncoding | undefined {
+  const match = /^[ \t]*ENCODING[ \t]+([A-Za-z0-9-]+)/im.exec(source);
+  return match === null ? undefined : named(match[1]!);
+}
+
+function named(page: string): TextEncoding | undefined {
+  const name = page.toUpperCase();
+  if (name === '1251' || name === 'WINDOWS-1251' || name === 'CP1251') return 'windows-1251';
+  if (name === 'UTF-8' || name === 'UTF8') return 'utf-8';
   return undefined;
 }
 

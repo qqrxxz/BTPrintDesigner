@@ -71,8 +71,8 @@ with its name rather than read as forty broken TSPL commands.
 
 A new label is written in Windows-1251, which is what DataMobile's own
 templates and the printers they are sent to expect. Choosing an encoding also
-writes it into the code — TSPL's `CODEPAGE`, ZPL's `^CI28` for UTF-8 — and
-replaces whatever the code said before; "as declared" leaves the line exactly
+writes it into the code — TSPL's `CODEPAGE`, ZPL's `^CI28` for UTF-8 and `^CI33`
+for 1251 — and replaces whatever the code said before; "as declared" leaves the line exactly
 as it was.
 
 A printer file is bytes, and which bytes matters: a TSC told `CODEPAGE 1251`

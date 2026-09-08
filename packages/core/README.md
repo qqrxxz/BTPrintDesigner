@@ -128,8 +128,9 @@ actually is. The other two languages have no default worth pinning and take a
 height the generator turns into whatever the language asks for.
 
 Encoding is the other half of reading somebody else's file. `declaredEncoding`
-reads what the code says about itself — TSPL's `CODEPAGE`, ZPL's `^CI28`,
-CPCL's `ENCODING` — and `encodeText` writes the bytes, naming any character the
+reads what the code says about itself — TSPL's `CODEPAGE`, ZPL's `^CI28` and
+`^CI33`, CPCL's `ENCODING`, believing the one that belongs to the language the
+file is actually written in — and `encodeText` writes the bytes, naming any character the
 page has no room for rather than dropping it. The Windows-1251 table is built
 by asking the platform's own decoder what each byte means, so it is nobody's
 hand-typed magic numbers.
