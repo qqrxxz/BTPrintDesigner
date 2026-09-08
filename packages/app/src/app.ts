@@ -349,7 +349,24 @@ export class App {
         this.section(`add:${group.id}`, russian ? group.ru : group.en, row, group.id === 'text'),
       );
     }
-    return box;
+    // Detached, the code is the truth and the canvas cannot write to it. The
+    // banner says so; leaving the buttons live would have them do nothing.
+    return this.lockWhileDetached(box, text);
+  }
+
+  /**
+   * Turns a panel's controls off while the code is the source of truth.
+   *
+   * A control that quietly does nothing is worse than one that is visibly
+   * unavailable, and the banner above the preview explains why.
+   */
+  private lockWhileDetached(container: HTMLElement, text: Strings): HTMLElement {
+    if (this.store.get().mode !== 'detached') return container;
+    for (const control of container.querySelectorAll('input, select, textarea, button')) {
+      (control as HTMLInputElement).disabled = true;
+      control.setAttribute('title', text.detachedBody);
+    }
+    return container;
   }
 
   private elementList(text: Strings): HTMLElement {
@@ -729,7 +746,7 @@ export class App {
   /** The label itself: what it is called, how big it is, what it is for. */
   private labelProperties(text: Strings): HTMLElement {
     const state = this.store.get();
-    return h(
+    const fields = h(
       'div',
       { class: 'fields' },
       field(
@@ -780,17 +797,21 @@ export class App {
         ),
       ),
     );
+    // These write to the design too, and while the code is the truth a design
+    // that changed would throw the code away.
+    return this.lockWhileDetached(fields, text);
   }
 
   /** The sample values and the DataMobile variables, which belong together. */
   private valuesSection(text: Strings): HTMLElement {
-    return h(
+    const section = h(
       'div',
       {},
       this.sampleData(text),
       h('h3', {}, text.variables),
       this.variables(text),
     );
+    return this.lockWhileDetached(section, text);
   }
 
   private elementProperties(text: Strings): HTMLElement {
@@ -850,7 +871,7 @@ export class App {
         button(text.remove, () => this.remove()),
       ),
     );
-    return container;
+    return this.lockWhileDetached(container, text);
   }
 
   private textProperties(

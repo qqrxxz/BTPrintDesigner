@@ -131,6 +131,11 @@ export class Store {
       ...this.state,
       document: change(this.state.document),
       mode: 'linked',
+      // The canvas has taken over, so the code it is being compared against is
+      // gone. Keeping the text a file was opened with — or the text somebody
+      // typed — would leave the panel showing a label that no longer matches
+      // the design: elements would be added and deleted with nothing moving.
+      code: '',
       dirty: true,
     };
     this.emit();

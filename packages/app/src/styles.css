@@ -245,6 +245,15 @@ summary:focus-visible,
   white-space: nowrap;
 }
 
+/* A control the code has taken over from. */
+input:disabled,
+select:disabled,
+textarea:disabled,
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 /* Fields ----------------------------------------------------------------- */
 
 .fields {

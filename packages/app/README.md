@@ -11,12 +11,21 @@ render rather than the model: only the renderer knows how wide a line of text or
 a barcode turned out. Drag them, nudge them with the arrow keys, or edit the
 numbers on the left.
 
+Opening a file — or typing in the code panel — puts that text on screen, and it
+stays there until the design is changed. The first change hands the code back to
+the generator, because a design that has moved on cannot be shown as somebody
+else's text: elements would be added and deleted with nothing on screen moving.
+The file on disk is untouched either way.
+
 The right column is the printer code. Editing it is allowed and consequential:
 if the model can hold everything the code says, the element panel keeps driving.
 If it cannot, the panel switches off, names the lines it did not understand, and
 the code becomes the source of truth while the preview carries on rendering.
-Naming the line is not enough to act on, so where the command is one this
-program writes, the line it would have written is shown underneath — generated
+While that is the case the panel's controls are switched off rather than left
+to do nothing: the banner says the code is in charge, and a control that quietly
+had no effect would contradict it. Naming the line is not enough to act on, so
+where the command is one this program writes, the line it would have written is
+shown underneath — generated
 from the same code that writes labels, so it cannot drift out of date.
 
 The printer chosen in the toolbar decides how many dots there are to the
