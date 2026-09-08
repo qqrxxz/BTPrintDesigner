@@ -5,13 +5,16 @@ import {
   DATAMOBILE_OPERATIONS,
   defaultContent,
   documentPlaceholders,
+  detectLanguage,
   documentVariables,
   exampleFor,
   findVariable,
   isAvailable,
   encodePng,
+  isProjectFile,
   parseDocument,
   PRINTER_PROFILES,
+  profilesForLanguage,
   GS1_SEPARATORS,
   PRESET_GROUPS,
   presetsOf,
@@ -41,6 +44,7 @@ import {
   renderFor,
 } from './pipeline.js';
 import { nextElementId, replaceElement, Store } from './state.js';
+import { templatesFor, type StockTemplate } from './templates.js';
 
 /** The bridge the preload script installs. */
 interface BtpdApi {
@@ -99,6 +103,8 @@ export class App {
    * snap back to their defaults the moment anything moved.
    */
   private readonly sectionOpen = new Map<string, boolean>();
+  /** True while the template picker is up. */
+  private showTemplates = false;
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -242,6 +248,8 @@ export class App {
       if (was !== undefined) panel.scrollTop = was;
     }
 
+    if (this.showTemplates) this.root.append(this.templatePicker(text));
+
     paint(this.canvas, derived.bitmap);
     this.placeOverlays(derived);
     if (editing) {
@@ -264,6 +272,7 @@ export class App {
         'div',
         { class: 'group' },
         button(text.newLabel, () => void this.newLabel()),
+        button(text.templates, () => this.toggleTemplates(true), { title: text.templatesHint }),
         button(text.open, () => void this.open()),
         button(text.save, () => void this.save(false)),
         button(text.exportCode, () => void this.exportCode()),
@@ -473,6 +482,77 @@ export class App {
       h('div', { class: 'panel-head' }, h('h2', {}, text.code)),
       this.codeArea,
     );
+  }
+
+  private toggleTemplates(open: boolean): void {
+    this.showTemplates = open;
+    this.render();
+  }
+
+  /**
+   * The stock templates, as a list to pick from.
+   *
+   * Grouped by the operation they belong to, because that is how DataMobile
+   * files them and how a reader looks for one. A template opens the way a
+   * customer's file opens — through the importer — so what appears is a design
+   * to change rather than a picture to admire.
+   */
+  private templatePicker(text: Strings): HTMLElement {
+    const state = this.store.get();
+    const russian = state.language === 'ru';
+    const body = h('div', { class: 'dialog-body' });
+
+    for (const operation of DATAMOBILE_OPERATIONS) {
+      if (operation.id === 'all') continue;
+      const offered = templatesFor(operation.id);
+      if (offered.length === 0) continue;
+
+      const list = h('div', { class: 'template-list' });
+      for (const template of offered) {
+        list.append(this.templateRow(template));
+      }
+      body.append(h('h3', {}, russian ? operation.ru : operation.en), list);
+    }
+    if (body.childElementCount === 0) body.append(h('p', { class: 'empty' }, text.noTemplates));
+
+    const close = button(text.close, () => this.toggleTemplates(false));
+    const dialog = h(
+      'div',
+      { class: 'dialog', role: 'dialog', 'aria-modal': true, 'aria-label': text.templates },
+      h(
+        'div',
+        { class: 'dialog-head' },
+        h('h2', {}, text.templates),
+        h('span', { class: 'muted' }, text.templatesHint),
+        close,
+      ),
+      body,
+    );
+
+    const backdrop = h('div', { class: 'backdrop' }, dialog);
+    backdrop.addEventListener('pointerdown', (event) => {
+      if (event.target === backdrop) this.toggleTemplates(false);
+    });
+    return backdrop;
+  }
+
+  private templateRow(template: StockTemplate & { readonly source: string }): HTMLElement {
+    const row = h(
+      'button',
+      { type: 'button', class: 'template-row' },
+      h('span', { class: 'template-name' }, template.file),
+      h('span', { class: 'template-facts' }, template.language.toUpperCase()),
+      h('span', { class: 'template-facts' }, template.size ?? ''),
+      h('span', { class: 'template-facts' }, template.printer),
+    );
+    row.addEventListener('click', () => {
+      void (async () => {
+        if (!(await this.unsavedWorkKept())) return;
+        this.showTemplates = false;
+        this.openCode(template.file, template.source);
+      })();
+    });
+    return row;
   }
 
   private problems(text: Strings, derived: Derived): HTMLElement {
@@ -1234,6 +1314,12 @@ export class App {
 
 
   private keyboard(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.showTemplates) {
+      event.preventDefault();
+      this.toggleTemplates(false);
+      return;
+    }
+
     const inField =
       event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement;
     if (inField) return;
@@ -1354,6 +1440,15 @@ export class App {
     if (!(await this.unsavedWorkKept())) return;
     const opened = await window.btpd?.openProject();
     if (!opened) return;
+
+    // A customer sends printer code, not a project file, and opening it should
+    // be the same command rather than a second one hidden somewhere else.
+    if (!isProjectFile(opened.content)) {
+      const name = opened.path.split('/').pop() ?? opened.path;
+      this.openCode(name, opened.content);
+      return;
+    }
+
     try {
       const parsed = parseDocument(JSON.parse(opened.content));
       if (!parsed.document) {
@@ -1374,6 +1469,42 @@ export class App {
   }
 
   /** Returns false when the reader backed out of the save dialog. */
+  /**
+   * Reads printer code as a design.
+   *
+   * The language comes from the code, never from the file name: the same
+   * vendor ships `.prn` files in three languages and calls a TSPL file `.prq`.
+   * The printer is switched to one that speaks it, because the preview is
+   * rendered by whichever language the chosen printer uses — a ZPL file under
+   * a TSC profile would draw nothing at all.
+   */
+  private openCode(name: string, source: string): void {
+    const text = this.text();
+    const language = detectLanguage(source);
+    if (language === undefined) {
+      window.alert(text.unknownLanguage);
+      return;
+    }
+
+    if (languageOf(this.store.profile()) !== language) {
+      const profile = profilesForLanguage(language)[0];
+      if (profile) this.store.patch({ profileId: profile.id });
+    }
+
+    const imported = importFor(this.store.profile(), source);
+    const document = { ...imported.document, name: name.replace(/\.[^.]+$/, '') };
+    this.store.adopt(document, {
+      mode: imported.mode,
+      code: source,
+      unmapped: imported.unmapped,
+      resetHistory: true,
+      dirty: false,
+    });
+    // Printer code is not a project file: saving must ask where to put the
+    // JSON rather than write it over the template that was opened.
+    this.store.patch({ filePath: undefined });
+  }
+
   private async save(forceDialog: boolean): Promise<boolean> {
     const state = this.store.get();
     const path = await window.btpd?.saveProject({

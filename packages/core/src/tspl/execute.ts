@@ -329,6 +329,9 @@ class Interpreter {
       case 'CUT':
       case 'PEEL':
       case 'PARTIAL_CUTTER':
+      // OUT sends a value back to the host — every TSC template carries one —
+      // and puts nothing on the label.
+      case 'OUT':
         return;
 
       case 'BITMAP':

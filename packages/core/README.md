@@ -102,6 +102,24 @@ symbol as GS1: a separator there means nothing else. ZPL's `^BC` says so
 outright — mode D is a GS1 payload — and CPCL calls the symbology `UCCEAN128`,
 which is what a GS1-128 is generated and imported as.
 
+## Reading somebody else's file
+
+`detectLanguage` says which of the three languages a file is written in, from
+the code rather than from the name. It answers nothing where it does not know:
+Godex EZPL leads with carets like ZPL and Honeywell Fingerprint reads like
+plain words, and calling either of them TSPL would produce a page of complaints
+instead of one honest sentence.
+
+The importers earn their keep on real files. DataMobile's own stock templates
+turned up four things they had been refusing without cause: TSPL's `OUT`, which
+answers the host and draws nothing; ZPL's `^CW`, which names a downloaded font;
+CPCL's `L`, which is `LINE` written short; and `SETMAG 0 0`, which asks for the
+printer's ordinary size. A second `^XA` before any `^XZ` is a format that opens
+itself twice, which printers take in their stride, and a job that draws nothing
+before the label — the one that registers a font — is setup rather than a
+second label. Thirty-seven of the vendor's forty-two files now come back as
+designs; the five that do not are in languages this program does not speak.
+
 ## The document and the code
 
 The document model is the source of truth a project file holds. It is

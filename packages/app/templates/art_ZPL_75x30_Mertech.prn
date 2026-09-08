@@ -1,0 +1,25 @@
+^XA
+^PW600
+^LL240
+^XA
+^CF1,20,20^FS
+^CI28
+
+^FO10,10^GB560,220,3^FS
+
+^FT20,30^A2N,20,20^FDНаименование:^FS
+^FT20,60^A2N,22,22^FD@Name1@^FS
+
+^FT350,290^A2N,16,16^FH\^FD@Date.@^FS
+
+^FT20,140^A2N,18,18^FDЦена:^FS
+^FT20,180^A2N,30,30^FH\^FD@PriceInteger@ руб. ^FS
+
+^FO10,120^GB560,0,3^FS
+
+^BY2,3,60^FT250,200
+^BCN,,N,N,N,D
+^FD@Barcode@^FS
+
+^PQ@Quant@
+^XZ

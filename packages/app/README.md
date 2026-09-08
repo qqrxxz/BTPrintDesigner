@@ -36,6 +36,29 @@ Arrow keys nudge by 0.1 mm, with Shift by 1 mm, and every size is also a field
 in the properties panel — which is the exact way to set one, and the way that
 works without a pointer.
 
+## Opening what a customer sent
+
+Open takes a project file or printer code, and decides which it is by looking:
+a project is JSON with a version, anything else is code. The language is read
+out of the code as well, never out of the file name — the same vendor ships
+`.prn` files in three languages and calls a TSPL file `.prq` — and the printer
+is switched to one that speaks it, because the preview is drawn by whichever
+language the chosen printer uses.
+
+Encoding is decided the same way. Templates come back from customers as often
+in Windows-1251 as in UTF-8 — TSPL's own `CODEPAGE 1251` line says which — so
+UTF-8 is tried strictly first and 1251 is the fallback. A file in a language
+this program does not speak, Godex EZPL or Honeywell Fingerprint, is refused
+with its name rather than read as forty broken TSPL commands.
+
+## Templates
+
+The toolbar's templates button opens DataMobile's own stock templates, grouped
+by operation. Sixteen of them: one copy of each, listed under every operation
+the vendor files it under. They open the way a customer's file opens — through
+the importer — so what appears is a design to change rather than a picture, and
+a test opens every one of them on every build to keep it that way.
+
 ## The left column
 
 Everything on the left is a section that folds away, and what is open stays open

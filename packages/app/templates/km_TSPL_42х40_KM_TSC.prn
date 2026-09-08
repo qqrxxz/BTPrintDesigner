@@ -1,0 +1,18 @@
+SIZE 42 mm,40 mm
+GAP 0,0
+DIRECTION 0
+CLS
+CODEPAGE 1251
+OUT A$
+
+
+TEXT 18,25,"CLB18",0,1,1,"@Name1@"
+TEXT 18,55,"CLB18",0,1,1,"@Attr1@"
+TEXT 18,75,"CLL18",0,1,1,"@Barcode@"
+TEXT 18,130,"CLL14",0,1,1,"Размер"
+TEXT 18,170,"CLL14",0,1,1,"@Attr2@"
+
+DMATRIX 95,110,40,40,c126,x5,22,22,"~101@gtin@21@sn@~]91@dmx91@~]92@dmx92@"
+BLOCK 275,300,220,100,"CLL14",270,1,1,0,"01@gtin@21@sn@"
+
+PRINT 1,@Quant@

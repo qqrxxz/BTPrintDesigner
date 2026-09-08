@@ -249,6 +249,7 @@ class Interpreter {
         return;
 
       case 'LINE':
+      case 'L':
         return this.line(command);
       case 'BOX':
         return this.box(command);

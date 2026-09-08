@@ -52,7 +52,22 @@ const PREAMBLE_COMMANDS = new Set([
   'JOURNAL',
   'PACE',
   'NO-PACE',
+  // The commands a "! UTILITIES" label carries: printer settings, no drawing.
+  'SET-TOF',
+  'REWIND-ON',
+  'REWIND-OFF',
+  'ON-FEED',
+  'TIMEOUT',
+  'PW',
+  'UTILITIES',
 ]);
+
+/** True when a SETMAG asks for the printer's ordinary size. */
+function isNeutralMagnification(command: CpclCommand): boolean {
+  const x = numberAt(command, 0, 1);
+  const y = numberAt(command, 1, 1);
+  return x <= 1 && y <= 1;
+}
 
 const TEXT_ROTATIONS: Readonly<Record<string, Rotation>> = {
   TEXT: 0,
@@ -163,6 +178,7 @@ class Importer {
       case 'PRINT':
         return;
       case 'LINE':
+      case 'L':
         return this.line(command);
       case 'BOX':
         return this.box(command);
@@ -177,6 +193,13 @@ class Importer {
       default:
         if (TEXT_ROTATIONS[command.name] !== undefined) return this.text(command);
         if (PREAMBLE_COMMANDS.has(command.name)) {
+          this.preamble.push(command.raw);
+          return;
+        }
+        // SETMAG 0 0 and SETMAG 1 1 both mean "no magnification", which is
+        // what a template writes to put the printer back to normal. Only a
+        // real magnification changes how the sizes that follow are read.
+        if (command.name === 'SETMAG' && isNeutralMagnification(command)) {
           this.preamble.push(command.raw);
           return;
         }

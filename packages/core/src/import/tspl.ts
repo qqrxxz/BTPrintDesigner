@@ -70,6 +70,9 @@ const PREAMBLE_COMMANDS = new Set([
   'DENSITY',
   'SET',
   'CODEPAGE',
+  // OUT sends a value back to the host; it puts nothing on the label, and
+  // every stock template from DataMobile carries one.
+  'OUT',
   'COUNTRY',
   'OFFSET',
   'SHIFT',

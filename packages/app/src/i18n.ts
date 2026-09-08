@@ -99,6 +99,11 @@ export interface Strings {
   readonly unsavedDetail: string;
   readonly discard: string;
   readonly cancel: string;
+  readonly unknownLanguage: string;
+  readonly templates: string;
+  readonly templatesHint: string;
+  readonly close: string;
+  readonly noTemplates: string;
 }
 
 const en: Strings = {
@@ -200,6 +205,13 @@ const en: Strings = {
   unsavedDetail: 'It has not been saved anywhere yet.',
   discard: 'Do not save',
   cancel: 'Cancel',
+  unknownLanguage:
+    'This file is not TSPL, ZPL or CPCL. Godex EZPL and Honeywell Fingerprint are ' +
+    'different languages, and this program does not read them.',
+  templates: 'Templates',
+  templatesHint: 'The templates DataMobile ships, to start from.',
+  close: 'Close',
+  noTemplates: 'Nothing for this operation.',
 };
 
 const ru: Strings = {
@@ -301,6 +313,13 @@ const ru: Strings = {
   unsavedDetail: 'Она ещё нигде не сохранена.',
   discard: 'Не сохранять',
   cancel: 'Отмена',
+  unknownLanguage:
+    'Это не TSPL, не ZPL и не CPCL. Godex EZPL и Honeywell Fingerprint — другие языки, ' +
+    'эта программа их не читает.',
+  templates: 'Шаблоны',
+  templatesHint: 'Стоковые шаблоны DataMobile, от которых можно оттолкнуться.',
+  close: 'Закрыть',
+  noTemplates: 'Для этой операции ничего нет.',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

@@ -1,0 +1,19 @@
+! 0 200 200 210 @Quant@
+COUNTRY WPC1251
+JOURNAL
+CENTER
+T 0 0 20 10 ООО "Игрушка"
+SETMAG 0 0
+BT 7 0 6
+B  EAN13 3 20 107 0 168 @Barcode@
+LEFT
+L 80 40 500 40 3
+T 0 0 20 45 Наименование: @Name1@
+T 0 0 70 77 @Name2@
+T 0 0 60 115 Артикул: 
+T 0 0 200 115 @Attr1@
+T 0 0 355 100 Цена:
+T 0 0 350 125 @Price@ р.
+BT OFF
+FORM
+PRINT 1

@@ -97,15 +97,39 @@ async function createWindow(): Promise<void> {
   }
 }
 
+/**
+ * Reads a file as text, whatever a label was written in.
+ *
+ * Templates that come back from customers are as often Windows-1251 as UTF-8 —
+ * TSPL's own `CODEPAGE 1251` line says which — and reading one as UTF-8 turns
+ * every Russian word into replacement characters. UTF-8 is tried strictly
+ * first, because a file that decodes as UTF-8 is UTF-8.
+ */
+function decodeText(bytes: Buffer): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder('windows-1251').decode(bytes);
+  }
+}
+
 ipcMain.handle('project:open', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Open label',
-    filters: [{ name: 'Label', extensions: ['btpd.json', 'json'] }],
+    filters: [
+      // One list rather than two: a customer's template and this program's own
+      // project are both "the label I want to look at".
+      {
+        name: 'Label or printer code',
+        extensions: ['btpd.json', 'json', 'prn', 'prq', 'lbl', 'txt', 'zpl', 'tspl', 'cpcl'],
+      },
+      { name: 'All files', extensions: ['*'] },
+    ],
     properties: ['openFile'],
   });
   const path = result.filePaths[0];
   if (result.canceled || path === undefined) return undefined;
-  return { path, content: await readFile(path, 'utf8') };
+  return { path, content: decodeText(await readFile(path)) };
 });
 
 ipcMain.handle(

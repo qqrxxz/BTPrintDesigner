@@ -58,6 +58,9 @@ const PREAMBLE_COMMANDS = new Set([
   'CI',
   'CT',
   'FX',
+  // ^CW gives a downloaded font a one-letter name. The canvas cannot use the
+  // font, but dropping the line would change what the printer does.
+  'CW',
 ]);
 
 const LINEAR_COMMANDS: Readonly<Record<string, LinearSymbology>> = {
@@ -122,6 +125,8 @@ class Importer {
   private barcodeHeight = 10;
   private nextId = 1;
   private opened = false;
+  /** True once a ^XZ has closed the first label. */
+  private finished = false;
   copies = 1;
 
   private pending = emptyPending();
@@ -159,7 +164,11 @@ class Importer {
   handle(command: ZplCommand): void {
     switch (command.name) {
       case 'XA':
-        if (this.opened) {
+        // A second ^XA before any ^XZ is a format that starts itself twice —
+        // a printer takes it in its stride, and so do the vendor templates
+        // that carry one. A ^XA after a ^XZ is a second label, which is a
+        // different thing entirely and cannot be held by one design.
+        if (this.finished) {
           this.reject(
             command,
             'This job prints more than one label; the canvas holds a single design.',
@@ -170,6 +179,10 @@ class Importer {
         return;
       case 'XZ':
         this.commit();
+        // A job that drew nothing was setup, not a label: printers are sent
+        // one to register a font before the label that uses it. The design is
+        // the job that puts something on paper.
+        if (this.elements.length > 0) this.finished = true;
         return;
       case 'PW':
         this.widthDots = numberParameter(command, 0, this.widthDots);

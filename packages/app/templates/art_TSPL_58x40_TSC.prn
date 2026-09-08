@@ -1,0 +1,14 @@
+SIZE 58 mm,40 mm
+GAP 2 mm,0 mm
+DIRECTION 0
+CLS
+CODEPAGE 1251
+OUT A$
+
+
+BLOCK 10,10,450,300,"2",0,1,1,"@Name1@"
+TEXT 200,110,"2",0,2,3,"@PriceWhole@руб"
+TEXT 350,280,"1",0,1,1,"@Date.@"
+
+BARCODE 10,185,"128M",70,2,0,2,1,"@Barcode@"
+PRINT 1
