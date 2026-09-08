@@ -30,6 +30,7 @@ import {
   type LabelElement,
   type EncodingChoice,
   type MatrixElement,
+  type PrinterLanguage,
   type Preset,
   type RectangleElement,
   type TextElement,
@@ -1198,12 +1199,23 @@ export class App {
       const outline = derived.bounds.find((entry) => entry.line === line);
       if (!outline) continue;
 
+      // A frame is empty in the middle, and an empty middle should not be a
+      // target: everything drawn inside it would be unreachable until the
+      // frame was dragged out of the way.
+      const hollow = element.type === 'rectangle' && element.fill !== 'solid';
       const box = h('div', {
-        class: `outline${element.id === state.selectedId ? ' selected' : ''}`,
+        class:
+          `outline${element.id === state.selectedId ? ' selected' : ''}` +
+          `${hollow ? ' hollow' : ''}`,
         style:
           `left:${outline.x * scale}px;top:${outline.y * scale}px;` +
           `width:${Math.max(4, outline.width * scale)}px;height:${Math.max(4, outline.height * scale)}px`,
       });
+      if (hollow) {
+        for (const edge of ['top', 'right', 'bottom', 'left']) {
+          box.append(h('div', { class: `edge ${edge}` }));
+        }
+      }
       box.addEventListener('pointerdown', (event) => this.startDrag(event, element, scale));
 
       if (element.id === state.selectedId) {
@@ -1257,11 +1269,15 @@ export class App {
     const origin = element;
     document.body.classList.add('dragging');
 
+    const language = languageOf(this.store.profile());
     const move = (moveEvent: PointerEvent): void => {
       const dx = (moveEvent.clientX - startX) / scale / perMm;
       const dy = (moveEvent.clientY - startY) / scale / perMm;
       this.store.edit(
-        (label) => replaceElement(label, element.id, () => resized(origin, handle, dx, dy, size)),
+        (label) =>
+          replaceElement(label, element.id, () =>
+            resized(origin, handle, dx, dy, size, { language, free: moveEvent.shiftKey }),
+          ),
         { gesture: true },
       );
     };
@@ -1430,7 +1446,11 @@ export class App {
       const id = nextElementId(document, preset.prefix);
       // New elements come down the label rather than on top of each other.
       const at = { x: 4, y: Math.min(document.height - 8, 4 + document.elements.length * 6) };
-      return { ...document, elements: [...document.elements, preset.make(id, at, document)] };
+      const language = languageOf(this.store.profile());
+      return {
+        ...document,
+        elements: [...document.elements, preset.make(id, at, document, language)],
+      };
     });
     this.store.select(this.store.get().document.elements.at(-1)?.id);
   }
@@ -1676,12 +1696,13 @@ const mm = (value: number): number => Math.round(value * 10) / 10;
  * arithmetic is against a fixed starting point rather than against the last
  * frame — which would drift.
  */
-function resized(
+export function resized(
   origin: LabelElement,
   handle: Handle,
   dx: number,
   dy: number,
   size: { width: number; height: number },
+  context: { language: PrinterLanguage; free: boolean },
 ): LabelElement {
   const west = handle === 'nw' || handle === 'w' || handle === 'sw';
   const east = handle === 'ne' || handle === 'e' || handle === 'se';
@@ -1689,8 +1710,16 @@ function resized(
   const south = handle === 'sw' || handle === 's' || handle === 'se';
 
   if (origin.type === 'line') {
-    if (handle === 'start') return { ...origin, x: mm(origin.x + dx), y: mm(origin.y + dy) };
-    return { ...origin, x2: mm(origin.x2 + dx), y2: mm(origin.y2 + dy) };
+    const anchor =
+      handle === 'start' ? { x: origin.x2, y: origin.y2 } : { x: origin.x, y: origin.y };
+    const moved =
+      handle === 'start'
+        ? { x: origin.x + dx, y: origin.y + dy }
+        : { x: origin.x2 + dx, y: origin.y2 + dy };
+    const end = straighten(moved, anchor, origin, context);
+    return handle === 'start'
+      ? { ...origin, x: mm(end.x), y: mm(end.y) }
+      : { ...origin, x2: mm(end.x), y2: mm(end.y) };
   }
 
   if (origin.type === 'rectangle') {
@@ -1730,6 +1759,38 @@ function resized(
   }
 
   return origin;
+}
+
+/**
+ * Keeps a line's end where the language can draw it.
+ *
+ * TSPL has no diagonal at all, so a millimetre of drift while lengthening a
+ * line would not tilt it — it would delete it from the label, which is what
+ * used to happen. There the end is held to the axis the line already runs
+ * along. The languages that draw diagonals only get a small snap, so a line
+ * meant to be straight stays straight; holding shift turns both off.
+ */
+function straighten(
+  moved: { x: number; y: number },
+  anchor: { x: number; y: number },
+  origin: { x: number; y: number; x2: number; y2: number },
+  context: { language: PrinterLanguage; free: boolean },
+): { x: number; y: number } {
+  if (context.free) return moved;
+
+  if (context.language === 'tspl') {
+    // TSPL draws a line along one axis or not at all, so the end is held to
+    // the axis this line already runs along: dragging it about lengthens and
+    // shortens it, and never deletes it. To turn a line the other way, its far
+    // end is two numbers in the panel.
+    const vertical = Math.abs(origin.x2 - origin.x) < Math.abs(origin.y2 - origin.y);
+    return vertical ? { x: anchor.x, y: moved.y } : { x: moved.x, y: anchor.y };
+  }
+
+  const SNAP = 1;
+  if (Math.abs(moved.y - anchor.y) < SNAP) return { x: moved.x, y: anchor.y };
+  if (Math.abs(moved.x - anchor.x) < SNAP) return { x: anchor.x, y: moved.y };
+  return moved;
 }
 
 function grow(
@@ -1782,5 +1843,8 @@ function starterDocument(): LabelDocument {
     width: 60,
     height: 40,
     gap: { height: 2, offset: 0 },
+    // What DataMobile's own templates are written in, and what the printers
+    // they are sent to are set up for.
+    encoding: 'windows-1251',
   });
 }

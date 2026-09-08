@@ -12,11 +12,13 @@
  * its own, so an interface in either language has nothing to invent.
  */
 import { defaultContent, isAvailable, type DataMobileOperation } from '../datamobile/variables.js';
+import type { PrinterLanguage } from '../printer/profiles.js';
 import type {
   LabelDocument,
   LabelElement,
   LinearSymbology,
   MatrixSymbology,
+  TextStyleSpec,
 } from './document.js';
 
 export type PresetGroup = 'text' | 'barcode' | 'matrix' | 'shape';
@@ -35,7 +37,29 @@ export interface Preset {
   readonly prefix: string;
   readonly ru: string;
   readonly en: string;
-  make(id: string, at: { x: number; y: number }, document: LabelDocument): LabelElement;
+  make(
+    id: string,
+    at: { x: number; y: number },
+    document: LabelDocument,
+    language: PrinterLanguage,
+  ): LabelElement;
+}
+
+/**
+ * How a new piece of text is sized.
+ *
+ * TSPL labels are written with the printer's own fonts and a multiplier — that
+ * is what every template from DataMobile does, and what a TSC prints without
+ * being asked to scale anything. Font 1 is the 8 by 12 cell, which is 1.5 mm
+ * tall at 203 dpi, so the height in the panel says the same thing the printer
+ * will do. The other two languages have no such default worth pinning, and get
+ * a height the generator turns into whatever the language asks for.
+ */
+function textStyle(language: PrinterLanguage): TextStyleSpec {
+  if (language === 'tspl') {
+    return { heightMm: 1.5, residentFont: '1', residentMultiplier: { x: 1, y: 1 } };
+  }
+  return { heightMm: 3 };
 }
 
 /** The variable this operation would put in an element of this kind. */
@@ -107,13 +131,13 @@ export const PRESETS: readonly Preset[] = [
     prefix: 't',
     ru: 'Строка',
     en: 'Line',
-    make: (id, at, document) => ({
+    make: (id, at, document, language) => ({
       id,
       type: 'text',
       x: at.x,
       y: at.y,
       content: content('text', document, 'Text'),
-      style: { heightMm: 3 },
+      style: textStyle(language),
     }),
   },
   {
@@ -124,13 +148,13 @@ export const PRESETS: readonly Preset[] = [
     prefix: 't',
     ru: 'Блок с переносом',
     en: 'Wrapped block',
-    make: (id, at, document) => ({
+    make: (id, at, document, language) => ({
       id,
       type: 'text',
       x: at.x,
       y: at.y,
       content: content('text', document, 'Текст'),
-      style: { heightMm: 3 },
+      style: textStyle(language),
       box: { width: 40, height: 12 },
     }),
   },

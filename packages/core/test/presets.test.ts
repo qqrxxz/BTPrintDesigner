@@ -5,15 +5,20 @@ import { generateTspl } from '../src/generate/tspl.js';
 import { generateZpl } from '../src/generate/zpl.js';
 import { createDocument, type LabelDocument } from '../src/model/document.js';
 import { PRESETS, PRESET_GROUPS, findPreset, type Preset } from '../src/model/presets.js';
+import type { PrinterLanguage } from '../src/printer/profiles.js';
 import { renderTspl } from '../src/tspl/execute.js';
 import { renderZpl } from '../src/zpl/execute.js';
 import { condensedBoldFont, monoFont } from './helpers/fonts.js';
 
 const fonts = () => ({ scalable: condensedBoldFont(), fixed: monoFont() });
 
-const labelWith = (preset: Preset, operation: DataMobileOperation): LabelDocument => {
+const labelWith = (
+  preset: Preset,
+  operation: DataMobileOperation,
+  language: PrinterLanguage = 'tspl',
+): LabelDocument => {
   const document = createDocument({ width: 60, height: 40, operation });
-  return { ...document, elements: [preset.make('e1', { x: 4, y: 4 }, document)] };
+  return { ...document, elements: [preset.make('e1', { x: 4, y: 4 }, document, language)] };
 };
 
 const operations = DATAMOBILE_OPERATIONS.map((entry) => entry.id);
@@ -35,7 +40,10 @@ describe('every preset, on every operation', () => {
           `${preset.id} / ${operation} / TSPL`,
         ).toEqual([]);
 
-        const zpl = generateZpl(label, { dpi: 203, resolveVariables: true }).source;
+        const zpl = generateZpl(labelWith(preset, operation, 'zpl'), {
+          dpi: 203,
+          resolveVariables: true,
+        }).source;
         const drawnZpl = renderZpl(zpl, { fonts: fonts(), dpi: 203 });
         expect(
           drawnZpl.diagnostics.filter((entry) => entry.severity === 'error'),
@@ -72,6 +80,15 @@ describe('every preset, on every operation', () => {
         expect(wrong, `${preset.id} / ${operation}`).toEqual([]);
       }
     }
+  });
+
+  it('writes TSPL text with the printer"s own font, as its templates do', () => {
+    // TEXT 32,32,"1",0,1,1,1,"Text": a resident cell and a multiplier, not a
+    // scaled outline. This is what a TSC prints without being asked to scale.
+    const line = generateTspl(labelWith(findPreset('text:line')!, 'all'), { dpi: 203 }).source;
+    expect(line).toMatch(/TEXT \d+,\d+,"1",0,1,1,1,"Text"/);
+    const block = generateTspl(labelWith(findPreset('text:block')!, 'all'), { dpi: 203 }).source;
+    expect(block).toMatch(/BLOCK \d+,\d+,\d+,\d+,"1",0,1,1,\d+,1,"Текст"/);
   });
 
   it('survives CPCL, which cannot draw everything', () => {

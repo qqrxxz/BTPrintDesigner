@@ -171,7 +171,15 @@ class Generator {
 
   generate(): void {
     const setup = this.options.includeSetup ?? true;
-    const preamble = this.document.preamble ?? [];
+    // A chosen encoding is written into the code as well as into the bytes:
+    // the printer is told CODEPAGE, and the file is written to match. On
+    // "as declared" the code keeps whatever it already said.
+    const chosen = this.document.encoding;
+    const declares = chosen !== undefined && chosen !== 'auto';
+    const preamble = (this.document.preamble ?? []).filter(
+      (line) => !declares || !/^\s*CODEPAGE\b/i.test(line),
+    );
+
     this.lines.push(`SIZE ${this.document.width} mm, ${this.document.height} mm`);
     if (setup) {
       const gap = this.document.gap ?? { height: 2, offset: 0 };
@@ -180,6 +188,9 @@ class Generator {
       // would leave two contradictory lines for a reader to puzzle over.
       if (!preamble.some((line) => /^\s*DIRECTION\b/i.test(line))) {
         this.lines.push('DIRECTION 0');
+      }
+      if (declares) {
+        this.lines.push(`CODEPAGE ${chosen === 'windows-1251' ? '1251' : 'UTF-8'}`);
       }
       this.lines.push(...preamble);
     }

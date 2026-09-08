@@ -120,6 +120,13 @@ before the label — the one that registers a font — is setup rather than a
 second label. Thirty-seven of the vendor's forty-two files now come back as
 designs; the five that do not are in languages this program does not speak.
 
+A new piece of text is made for the language it will be written in. TSPL gets
+the printer's own font 1 and a multiplier of one — `TEXT 32,32,"1",0,1,1,1` —
+which is what every template from DataMobile does and what a TSC prints without
+being asked to scale an outline; the height in millimetres says what that cell
+actually is. The other two languages have no default worth pinning and take a
+height the generator turns into whatever the language asks for.
+
 Encoding is the other half of reading somebody else's file. `declaredEncoding`
 reads what the code says about itself — TSPL's `CODEPAGE`, ZPL's `^CI28`,
 CPCL's `ENCODING` — and `encodeText` writes the bytes, naming any character the

@@ -352,6 +352,28 @@ button:disabled {
   background: rgb(90 169 230 / 10%);
 }
 
+/*
+ * A frame is empty in the middle, so only its edge is a target — otherwise
+ * everything inside it would be unreachable until the frame was moved away.
+ */
+.outline.hollow {
+  pointer-events: none;
+}
+
+.outline.hollow > .edge,
+.handle {
+  pointer-events: auto;
+}
+
+.edge {
+  position: absolute;
+}
+
+.edge.top { left: 0; right: 0; top: -4px; height: 9px; cursor: move; }
+.edge.bottom { left: 0; right: 0; bottom: -4px; height: 9px; cursor: move; }
+.edge.left { top: 0; bottom: 0; left: -4px; width: 9px; cursor: move; }
+.edge.right { top: 0; bottom: 0; right: -4px; width: 9px; cursor: move; }
+
 /* Grips ------------------------------------------------------------------- */
 
 .handle {

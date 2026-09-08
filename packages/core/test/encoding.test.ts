@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTspl } from '../src/generate/tspl.js';
+import { generateZpl } from '../src/generate/zpl.js';
 import { createDocument } from '../src/model/document.js';
 import { parseDocument, serializeDocument } from '../src/model/validate.js';
 import { declaredEncoding, encodeText, resolveEncoding } from '../src/printer/encoding.js';
@@ -84,5 +85,45 @@ describe('the choice in a saved file', () => {
     const result = parseDocument({ version: 1, width: 60, height: 40, encoding: 'koi8-r' });
     expect(result.document!.encoding).toBe('auto');
     expect(result.issues[0]!.path).toBe('encoding');
+  });
+});
+
+describe('the code says what the file is written in', () => {
+  const label = (encoding?: 'auto' | 'utf-8' | 'windows-1251') =>
+    createDocument({
+      width: 60,
+      height: 40,
+      ...(encoding === undefined ? {} : { encoding }),
+      preamble: ['CODEPAGE 1251', 'OUT A$'],
+      elements: [{ id: 't1', type: 'text', x: 4, y: 4, content: 'Кабель', style: { heightMm: 3 } }],
+    });
+
+  it('writes the chosen code page into TSPL, and only once', () => {
+    const source = generateTspl(label('utf-8'), { dpi: 203 }).source;
+    expect(source).toContain('CODEPAGE UTF-8');
+    expect(source.match(/CODEPAGE/g)).toHaveLength(1);
+    expect(source).toContain('OUT A$');
+    expect(generateTspl(label('windows-1251'), { dpi: 203 }).source).toContain('CODEPAGE 1251');
+  });
+
+  it('leaves the code alone on "as declared"', () => {
+    // Whatever the file said about itself is what it goes on saying.
+    const source = generateTspl(label('auto'), { dpi: 203 }).source;
+    expect(source.match(/CODEPAGE/g)).toHaveLength(1);
+    expect(source).toContain('CODEPAGE 1251');
+    expect(generateTspl(label(), { dpi: 203 }).source).toContain('CODEPAGE 1251');
+  });
+
+  it('says UTF-8 in ZPL with ^CI28, and guesses at nothing else', () => {
+    expect(generateZpl(label('utf-8'), { dpi: 203 }).source).toContain('^CI28');
+    // ZPL has no number here for 1251 that is worth guessing at.
+    expect(generateZpl(label('windows-1251'), { dpi: 203 }).source).not.toContain('^CI');
+  });
+
+  it('reads back what it wrote', () => {
+    for (const encoding of ['utf-8', 'windows-1251'] as const) {
+      const source = generateTspl(label(encoding), { dpi: 203 }).source;
+      expect(declaredEncoding(source), encoding).toBe(encoding);
+    }
   });
 });

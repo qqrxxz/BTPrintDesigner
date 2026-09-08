@@ -41,6 +41,13 @@ decides how many bars there are; a two-dimensional symbol has only its module; a
 line has two ends. A single line of text has none of these: its size is the
 character height, which is a number in the panel rather than a corner to pull.
 
+A line is held to the axis it runs along while TSPL is the language, because
+TSPL has no diagonal command at all and a millimetre of drift while lengthening
+one would delete it from the label rather than tilt it. ZPL, which draws
+diagonals, gets a small snap instead; shift turns both off and asks for the
+diagonal outright. A frame is a target only on its edge — its middle belongs to
+whatever is drawn inside it.
+
 Arrow keys nudge by 0.1 mm, with Shift by 1 mm, and every size is also a field
 in the properties panel — which is the exact way to set one, and the way that
 works without a pointer.
@@ -61,6 +68,12 @@ this program does not speak, Godex EZPL or Honeywell Fingerprint, is refused
 with its name rather than read as forty broken TSPL commands.
 
 ## The bytes that leave
+
+A new label is written in Windows-1251, which is what DataMobile's own
+templates and the printers they are sent to expect. Choosing an encoding also
+writes it into the code — TSPL's `CODEPAGE`, ZPL's `^CI28` for UTF-8 — and
+replaces whatever the code said before; "as declared" leaves the line exactly
+as it was.
 
 A printer file is bytes, and which bytes matters: a TSC told `CODEPAGE 1251`
 and handed UTF-8 prints nonsense where the Russian was. The label carries the
