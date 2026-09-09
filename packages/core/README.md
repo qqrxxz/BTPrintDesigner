@@ -120,6 +120,23 @@ before the label — the one that registers a font — is setup rather than a
 second label. Thirty-seven of the vendor's forty-two files now come back as
 designs; the five that do not are in languages this program does not speak.
 
+## What the printer said
+
+Three things in this package were assumptions until a TSC printed them.
+
+A backslash is literal — `\\` comes off the paper as two — so neither the
+generator nor the parser touches one. A double quote cannot be written inside a
+string at all: the line carrying `\"` never arrived, taking the rest of its
+command with it. What the firmware does read is its own BASIC, which is why
+every vendor template carries an `OUT A$`: `"A" + CHR$(34) + "B"` prints `A"B`,
+and that is how a quote is written and read here now.
+
+The scalable font `0` is a Latin outline. Given a Russian line it printed the
+ASCII and dropped the rest, so a text that leaves ASCII without pinning a
+resident font is a warning. Fonts 1 to 5 carry the whole of code page 1251 —
+that much a printed sample of every character settled — and `tools/font-sample`
+prints it for measuring, with `tools/printer-probe` for the questions above.
+
 A new piece of text is made for the language it will be written in. TSPL gets
 the printer's own font 1 and a multiplier of one — `TEXT 32,32,"1",0,1,1,1` —
 which is what every template from DataMobile does and what a TSC prints without

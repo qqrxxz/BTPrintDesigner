@@ -141,17 +141,6 @@ class Generator {
    * command behind it. DataMobile's scanning log is exactly such a value.
    */
   private quoted(text: string, element: LabelElement): string {
-    if (text.includes('"')) {
-      this.issues.push({
-        severity: 'warning',
-        elementId: element.id,
-        code: 'generate.tspl-no-quote',
-        message:
-          'A TSPL string ends at the first double quote, and this firmware reads no ' +
-          'escape for one, so the quotes in this value are left out. Use a typographic ' +
-          'quote — « » or “ ” — which the printer draws as a character of its own.',
-      });
-    }
     const flattened = text.replace(/\r\n|\r|\n/g, ' ');
     if (flattened !== text) {
       this.issues.push({
@@ -188,9 +177,11 @@ class Generator {
     const chosen = this.document.encoding;
     const declares = chosen !== undefined && chosen !== 'auto';
     const all = this.document.preamble ?? [];
-    // Every template the vendor ships puts CODEPAGE after CLS, and the printed
-    // proof is that a code page set before it does not survive: the Cyrillic
-    // came back as question marks. Wherever the line was, it goes after.
+    // Every template the vendor ships puts CODEPAGE after CLS, so that is where
+    // this program puts it too, wherever the line came from. A printed test
+    // says both orders work on a TSC — the question marks that first suggested
+    // otherwise turned out to be an editor saving the file in another code
+    // page — but the vendor's order is the one proven on their printers.
     const codepage = declares
       ? `CODEPAGE ${chosen === 'windows-1251' ? '1251' : 'UTF-8'}`
       : all.find((line) => /^\s*CODEPAGE\b/i.test(line));
@@ -238,7 +229,8 @@ class Generator {
   }
 
   private text(element: TextElement): void {
-    const content = this.quoted(this.resolve(element.content, element), element);
+    const written = this.resolve(element.content, element);
+    const content = this.quoted(written, element);
     const height = Math.max(1, this.dots(element.style.heightMm));
     const width = Math.max(1, Math.round(height * (element.style.widthScale ?? 1)));
     const alignment = element.align === 'center' ? 2 : element.align === 'right' ? 3 : 1;
@@ -247,6 +239,20 @@ class Generator {
     // used, where the multipliers are the character size in dots and the height
     // comes out exactly as designed.
     const pinned = element.style.residentFont;
+    // The scalable font is an outline of Latin letters: on the TSC this was
+    // tested on it printed the ASCII of a Russian line and dropped the rest.
+    // Only the resident cells, 1 to 5, carry the code page.
+    if (pinned === undefined && /[^\u0000-\u007f]/.test(written)) {
+      this.issues.push({
+        severity: 'warning',
+        elementId: element.id,
+        code: 'generate.tspl-scalable-not-cyrillic',
+        message:
+          'This text leaves ASCII, and font "0" is the scalable outline, which printed ' +
+          'nothing but the Latin part of a Russian line on the printer this was tested ' +
+          'on. Pin a resident font — 1 to 5 — for text in Cyrillic.',
+      });
+    }
     const font = pinned ?? '0';
     const multiplier = element.style.residentMultiplier;
     const xMultiplier = pinned ? (multiplier?.x ?? 1) : width;
@@ -258,14 +264,14 @@ class Generator {
         `BLOCK ${this.dots(element.x)},${this.dots(element.y)},` +
           `${this.dots(element.box.width)},${this.dots(element.box.height)},` +
           `"${font}",${element.rotation ?? 0},${xMultiplier},${yMultiplier},` +
-          `${gap},${alignment},"${content}"`,
+          `${gap},${alignment},${content}`,
       );
       return;
     }
 
     this.lines.push(
       `TEXT ${this.dots(element.x)},${this.dots(element.y)},"${font}",` +
-        `${element.rotation ?? 0},${xMultiplier},${yMultiplier},${alignment},"${content}"`,
+        `${element.rotation ?? 0},${xMultiplier},${yMultiplier},${alignment},${content}`,
     );
   }
 
@@ -343,7 +349,7 @@ class Generator {
     this.lines.push(
       `BARCODE ${this.dots(element.x)},${this.dots(element.y)},"${name}",${height},` +
         `${element.humanReadable ? 1 : 0},${element.rotation ?? 0},${narrow},${wide},` +
-        `"${this.quoted(data, element)}"`,
+        `${this.quoted(data, element)}`,
     );
   }
 
@@ -362,7 +368,7 @@ class Generator {
       const level = element.errorCorrection ?? 'M';
       this.lines.push(
         `QRCODE ${x},${y},${level},${module},A,${element.rotation ?? 0},` +
-          `"${this.quoted(data, element)}"`,
+          `${this.quoted(data, element)}`,
       );
       return;
     }
@@ -383,7 +389,7 @@ class Generator {
         const symbol = encodeDataMatrix(sized, { gs1: element.symbology === 'gs1-datamatrix' });
         this.lines.push(
           `DMATRIX ${x},${y},${symbol.width * module},${symbol.height * module},` +
-            `"${this.quoted(data, element)}"`,
+            `${this.quoted(data, element)}`,
         );
         return;
       }
@@ -402,7 +408,7 @@ class Generator {
       }
       this.lines.push(
         `PDF417 ${x},${y},${symbol.width * module},${symbol.height * rowHeight},` +
-          `${element.rotation ?? 0},${parts.join(',')},"${this.quoted(data, element)}"`,
+          `${element.rotation ?? 0},${parts.join(',')},${this.quoted(data, element)}`,
       );
     } catch (error) {
       this.issues.push({
@@ -420,17 +426,25 @@ class Generator {
 }
 
 /**
- * A content string, as the firmware will read it.
+ * A string argument, quotes and all.
  *
- * Nothing is escaped, because nothing is unescaped at the other end. A printed
- * test settled it: `\\` came out as two backslashes and a line carrying `\"`
- * never arrived — the quote ended the string and the rest of the command went
- * with it. A backslash is therefore written as itself, and a double quote is
- * taken out and reported, because there is no way to put one in a string this
- * firmware will accept.
+ * Nothing is escaped, because nothing is unescaped at the other end: a printed
+ * test showed `\\` coming out as two backslashes, and a line carrying `\"`
+ * never arriving at all — the quote ended the string and took the rest of the
+ * command with it.
+ *
+ * A quote therefore leaves the string and comes back as `CHR$(34)`, which the
+ * firmware's BASIC evaluates and joins with `+`. The same test proved it:
+ * `"A" + CHR$(34) + "B"` printed `A"B`.
  */
 function quote(text: string): string {
-  return text.replace(/"/g, '');
+  if (!text.includes('"')) return `"${text}"`;
+  const terms: string[] = [];
+  text.split('"').forEach((piece, index) => {
+    if (index > 0) terms.push('CHR$(34)');
+    if (piece.length > 0) terms.push(`"${piece}"`);
+  });
+  return terms.length === 0 ? '""' : terms.join(' + ');
 }
 
 export function generateTspl(

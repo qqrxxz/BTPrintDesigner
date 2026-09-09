@@ -123,15 +123,67 @@ function splitArguments(text: string, offset: number): { text: string; offset: n
 }
 
 /**
- * A content string is taken as it is written.
+ * A string argument, which may be an expression.
  *
- * This program used to undo `\\` and `\"` here, on the assumption that the
- * firmware wrote them that way. A printed test says otherwise: a TSC prints
- * `\\` as two backslashes and drops the whole command when a string carries a
- * quote. The interpreter models the printer, so it does neither.
+ * A content string is taken as it is written: this program used to undo `\\`
+ * and `\"` here, on the assumption that the firmware wrote them that way, and
+ * a printed test says otherwise — a TSC prints `\\` as two backslashes and
+ * drops the whole command when a string carries a quote.
+ *
+ * What the firmware does read is BASIC. Every template the vendor ships
+ * carries an `OUT A$`, and the same interpreter joins strings with `+` and
+ * names a character with `CHR$(n)`. That is the only way a double quote
+ * reaches a label — `"A" + CHR$(34) + "B"` prints `A"B` — so it is read here.
+ *
+ * Returns nothing when the text is not one of these, which leaves the plainer
+ * reading in place: a lone quote inside a string stays part of it.
  */
-function unescape(text: string): string {
-  return text;
+function stringExpression(text: string): { value: string; closed: boolean } | undefined {
+  let at = 0;
+  let value = '';
+  let closed = true;
+  let expectTerm = true;
+
+  while (at < text.length) {
+    const character = text[at]!;
+    if (character === ' ' || character === '\t') {
+      at++;
+      continue;
+    }
+
+    if (expectTerm) {
+      if (character === '"') {
+        const end = text.indexOf('"', at + 1);
+        if (end === -1) {
+          value += text.slice(at + 1);
+          closed = false;
+          at = text.length;
+        } else {
+          value += text.slice(at + 1, end);
+          at = end + 1;
+        }
+        expectTerm = false;
+        continue;
+      }
+      const named = /^CHR\$\s*\(\s*(\d{1,3})\s*\)/i.exec(text.slice(at));
+      if (named) {
+        value += String.fromCharCode(Number(named[1]));
+        at += named[0].length;
+        expectTerm = false;
+        continue;
+      }
+      return undefined;
+    }
+
+    if (character === '+') {
+      at++;
+      expectTerm = true;
+      continue;
+    }
+    return undefined;
+  }
+
+  return { value, closed: closed && !expectTerm };
 }
 
 export function parseTspl(source: string): ParseResult {
@@ -186,8 +238,10 @@ export function parseTspl(source: string): ParseResult {
           column: start - lineStart + 1,
         };
 
-        if (text.startsWith('"')) {
-          const closed = text.length >= 2 && text.endsWith('"');
+        if (text.startsWith('"') || /^CHR\$/i.test(text)) {
+          const expression = stringExpression(text);
+          const closed =
+            expression?.closed ?? (text.length >= 2 && text.startsWith('"') && text.endsWith('"'));
           if (!closed) {
             diagnostics.push({
               severity: 'error',
@@ -200,7 +254,9 @@ export function parseTspl(source: string): ParseResult {
           }
           args.push({
             kind: 'string',
-            value: unescape(closed ? text.slice(1, -1) : text.slice(1)),
+            value:
+              expression?.value ??
+              (text.endsWith('"') && text.length >= 2 ? text.slice(1, -1) : text.slice(1)),
             span,
           });
           continue;

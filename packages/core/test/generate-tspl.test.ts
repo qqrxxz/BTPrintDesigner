@@ -94,12 +94,23 @@ describe('text', () => {
     expect(source).toContain('"C:\\TEMP"');
   });
 
-  it('takes a double quote out, and says so', () => {
-    // A string ends at the first quote and this firmware reads no escape for
-    // one; the line that carried `\"` never arrived at the printer at all.
+  it('writes a double quote as CHR$(34), which is the only way in', () => {
+    // A string ends at the first quote and the firmware reads no escape for
+    // one — the line carrying `\"` never arrived at the printer at all. What
+    // it does read is its own BASIC, and a printed test confirmed the form.
     const { source, issues } = generate([text({ content: 'ООО "Ромашка"' })]);
-    expect(source).toContain('"ООО Ромашка"');
-    expect(issues.map((issue) => issue.code)).toContain('generate.tspl-no-quote');
+    expect(source).toContain('"ООО " + CHR$(34) + "Ромашка" + CHR$(34)');
+    // The one warning is about the font, not the quotes: this text is Russian
+    // and the element pins no resident font.
+    expect(issues.map((issue) => issue.code)).toEqual(['generate.tspl-scalable-not-cyrillic']);
+  });
+
+  it('reads its own quotes back through the interpreter', () => {
+    const { source } = generate([text({ content: 'ООО "Ромашка"' })]);
+    const command = renderTspl(source, { fonts: fonts() }).commands.find(
+      (candidate) => candidate.name === 'TEXT',
+    )!;
+    expect(command.arguments.at(-1)!.value).toBe('ООО "Ромашка"');
   });
 
   it('survives the round trip through the interpreter', () => {

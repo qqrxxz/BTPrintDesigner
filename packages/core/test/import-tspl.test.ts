@@ -289,7 +289,12 @@ describe('round trip', () => {
   it('prints the same label after a trip through the model', () => {
     const imported = importTspl(source);
     const regenerated = generateTspl(imported.document, { dpi: 203, copies: imported.copies });
-    expect(regenerated.issues).toEqual([]);
+    // This job puts Russian through the scalable font, which the printer draws
+    // in Latin only; the warning is the point, and it changes nothing here.
+    expect(regenerated.issues.map((issue) => issue.code)).toEqual([
+      'generate.tspl-scalable-not-cyrillic',
+      'generate.tspl-scalable-not-cyrillic',
+    ]);
     expect(render(regenerated.source).equals(render(source))).toBe(true);
   });
 

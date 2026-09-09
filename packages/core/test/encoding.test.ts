@@ -106,9 +106,9 @@ describe('the code says what the file is written in', () => {
       elements: [{ id: 't1', type: 'text', x: 4, y: 4, content: 'Кабель', style: { heightMm: 3 } }],
     });
 
-  it('puts the code page after CLS, where the printer keeps it', () => {
-    // A code page set before CLS did not survive it: the print came back with
-    // question marks where the Cyrillic was. Every vendor template agrees.
+  it('puts the code page after CLS, where the vendor puts it', () => {
+    // A TSC honours it either side; the vendor's own templates all put it
+    // after CLS, and following the file that is known to print is free.
     const source = generateTspl(label('windows-1251'), { dpi: 203 }).source;
     const lines = source.split('\n');
     expect(lines.indexOf('CODEPAGE 1251')).toBeGreaterThan(lines.indexOf('CLS'));
