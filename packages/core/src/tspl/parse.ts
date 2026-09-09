@@ -123,23 +123,15 @@ function splitArguments(text: string, offset: number): { text: string; offset: n
 }
 
 /**
- * Undoes the only two escapes a TSPL content string uses.
+ * A content string is taken as it is written.
  *
- * A backslash before anything else is left alone: it is a literal character in
- * the data far more often than it is an escape, and eating it would silently
- * change what the label says.
+ * This program used to undo `\\` and `\"` here, on the assumption that the
+ * firmware wrote them that way. A printed test says otherwise: a TSC prints
+ * `\\` as two backslashes and drops the whole command when a string carries a
+ * quote. The interpreter models the printer, so it does neither.
  */
 function unescape(text: string): string {
-  let out = '';
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '\\' && (text[i + 1] === '"' || text[i + 1] === '\\')) {
-      i++;
-      out += text[i];
-      continue;
-    }
-    out += text[i];
-  }
-  return out;
+  return text;
 }
 
 export function parseTspl(source: string): ParseResult {

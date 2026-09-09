@@ -106,6 +106,19 @@ describe('the code says what the file is written in', () => {
       elements: [{ id: 't1', type: 'text', x: 4, y: 4, content: 'Кабель', style: { heightMm: 3 } }],
     });
 
+  it('puts the code page after CLS, where the printer keeps it', () => {
+    // A code page set before CLS did not survive it: the print came back with
+    // question marks where the Cyrillic was. Every vendor template agrees.
+    const source = generateTspl(label('windows-1251'), { dpi: 203 }).source;
+    const lines = source.split('\n');
+    expect(lines.indexOf('CODEPAGE 1251')).toBeGreaterThan(lines.indexOf('CLS'));
+  });
+
+  it('keeps an imported code page after CLS as well', () => {
+    const lines = generateTspl(label('auto'), { dpi: 203 }).source.split('\n');
+    expect(lines.indexOf('CODEPAGE 1251')).toBeGreaterThan(lines.indexOf('CLS'));
+  });
+
   it('writes the chosen code page into TSPL, and only once', () => {
     const source = generateTspl(label('utf-8'), { dpi: 203 }).source;
     expect(source).toContain('CODEPAGE UTF-8');

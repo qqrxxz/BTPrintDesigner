@@ -141,6 +141,17 @@ class Generator {
    * command behind it. DataMobile's scanning log is exactly such a value.
    */
   private quoted(text: string, element: LabelElement): string {
+    if (text.includes('"')) {
+      this.issues.push({
+        severity: 'warning',
+        elementId: element.id,
+        code: 'generate.tspl-no-quote',
+        message:
+          'A TSPL string ends at the first double quote, and this firmware reads no ' +
+          'escape for one, so the quotes in this value are left out. Use a typographic ' +
+          'quote — « » or “ ” — which the printer draws as a character of its own.',
+      });
+    }
     const flattened = text.replace(/\r\n|\r|\n/g, ' ');
     if (flattened !== text) {
       this.issues.push({
@@ -176,9 +187,14 @@ class Generator {
     // "as declared" the code keeps whatever it already said.
     const chosen = this.document.encoding;
     const declares = chosen !== undefined && chosen !== 'auto';
-    const preamble = (this.document.preamble ?? []).filter(
-      (line) => !declares || !/^\s*CODEPAGE\b/i.test(line),
-    );
+    const all = this.document.preamble ?? [];
+    // Every template the vendor ships puts CODEPAGE after CLS, and the printed
+    // proof is that a code page set before it does not survive: the Cyrillic
+    // came back as question marks. Wherever the line was, it goes after.
+    const codepage = declares
+      ? `CODEPAGE ${chosen === 'windows-1251' ? '1251' : 'UTF-8'}`
+      : all.find((line) => /^\s*CODEPAGE\b/i.test(line));
+    const preamble = all.filter((line) => !/^\s*CODEPAGE\b/i.test(line));
 
     this.lines.push(`SIZE ${this.document.width} mm, ${this.document.height} mm`);
     if (setup) {
@@ -189,12 +205,10 @@ class Generator {
       if (!preamble.some((line) => /^\s*DIRECTION\b/i.test(line))) {
         this.lines.push('DIRECTION 0');
       }
-      if (declares) {
-        this.lines.push(`CODEPAGE ${chosen === 'windows-1251' ? '1251' : 'UTF-8'}`);
-      }
       this.lines.push(...preamble);
     }
     this.lines.push('CLS');
+    if (setup && codepage !== undefined) this.lines.push(codepage.trim());
 
     for (const element of this.document.elements) {
       const before = this.lines.length;
@@ -405,9 +419,18 @@ class Generator {
   }
 }
 
-/** Escapes the two characters a TSPL content string cannot carry raw. */
+/**
+ * A content string, as the firmware will read it.
+ *
+ * Nothing is escaped, because nothing is unescaped at the other end. A printed
+ * test settled it: `\\` came out as two backslashes and a line carrying `\"`
+ * never arrived — the quote ended the string and the rest of the command went
+ * with it. A backslash is therefore written as itself, and a double quote is
+ * taken out and reported, because there is no way to put one in a string this
+ * firmware will accept.
+ */
 function quote(text: string): string {
-  return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return text.replace(/"/g, '');
 }
 
 export function generateTspl(

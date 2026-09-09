@@ -87,17 +87,27 @@ describe('text', () => {
     expect(source).toContain(`BLOCK ${dots(3)},${dots(4)},${dots(30)},${dots(10)},"0"`);
   });
 
-  it('escapes quotes and backslashes in the content', () => {
-    const { source } = generate([text({ content: 'say "hi" \\ bye' })]);
-    expect(source).toContain('"say \\"hi\\" \\\\ bye"');
+  it('writes a backslash as itself, which is how a TSC prints one', () => {
+    // A printed test settled this: `\\` came out of the printer as two
+    // backslashes, so escaping one would print a character nobody asked for.
+    const { source } = generate([text({ content: 'C:\\TEMP' })]);
+    expect(source).toContain('"C:\\TEMP"');
   });
 
-  it('survives the escaping intact through the interpreter', () => {
-    const { source } = generate([text({ content: 'say "hi" \\ bye' })]);
+  it('takes a double quote out, and says so', () => {
+    // A string ends at the first quote and this firmware reads no escape for
+    // one; the line that carried `\"` never arrived at the printer at all.
+    const { source, issues } = generate([text({ content: 'ООО "Ромашка"' })]);
+    expect(source).toContain('"ООО Ромашка"');
+    expect(issues.map((issue) => issue.code)).toContain('generate.tspl-no-quote');
+  });
+
+  it('survives the round trip through the interpreter', () => {
+    const { source } = generate([text({ content: 'C:\\TEMP' })]);
     const command = renderTspl(source, { fonts: fonts() }).commands.find(
       (candidate) => candidate.name === 'TEXT',
     )!;
-    expect(command.arguments.at(-1)!.value).toBe('say "hi" \\ bye');
+    expect(command.arguments.at(-1)!.value).toBe('C:\\TEMP');
   });
 });
 

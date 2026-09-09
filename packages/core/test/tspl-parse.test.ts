@@ -13,9 +13,10 @@ describe('TSPL parsing', () => {
     expect(content).toMatchObject({ kind: 'string', value: 'Kabel, 2 m, black' });
   });
 
-  it('unescapes quotes and backslashes but leaves other backslashes alone', () => {
-    const { commands } = parseTspl(String.raw`TEXT 0,0,"3",0,1,1,"a\"b\\c\d"`);
-    expect(commands[0]!.arguments.at(-1)!.value).toBe(String.raw`a"b\c\d`);
+  it('takes a backslash literally, as the printer does', () => {
+    // The firmware undoes nothing: a printed `\\` comes out as two backslashes.
+    const { commands } = parseTspl(String.raw`TEXT 0,0,"3",0,1,1,"a\\b\c"`);
+    expect(commands[0]!.arguments.at(-1)!.value).toBe(String.raw`a\\b\c`);
   });
 
   it('reads a unit suffix where the source spells one', () => {
