@@ -14,7 +14,8 @@
     "dev:web": "vite",
     "test": "vitest run",
     "icon": "node tools/make-icon.mjs",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win": "npm run build && electron-builder --win"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

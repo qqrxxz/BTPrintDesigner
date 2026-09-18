@@ -177,6 +177,23 @@ outright, clear the quarantine flag:
 xattr -dr com.apple.quarantine /Applications/BTPrintDesigner.app
 ```
 
+For Windows there is a portable build — one executable, nothing to install:
+
+```
+npm run dist:win          # release/BTPrintDesigner-<version>-portable.exe
+```
+
+It is built on the Mac: electron-builder cross-packages for Windows and uses
+Wine to write the icon and version details into the executable, so Wine has to
+be installed (`brew install --cask wine-stable`). The exe unpacks itself to a
+temporary folder each time it starts, which costs a second or two and writes
+nothing to the registry. It is not signed, so the first run goes through
+SmartScreen — More info, then Run anyway.
+
+The Windows icon is a proper `.ico` with every size from 16 to 256 in it, each
+drawn at its own resolution by `tools/make-icon.mjs` — the taskbar shows sixteen
+and twenty-four pixels, where a downscaled large icon is at its muddiest.
+
 Only the renderer, the compiled main process and the manifest go into the
 bundle. The core package is deliberately a development dependency: Vite bundles
 it from source, the main process never imports it, and leaving it in the

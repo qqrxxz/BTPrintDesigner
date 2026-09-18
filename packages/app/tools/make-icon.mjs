@@ -302,6 +302,39 @@ for (const [size, name] of ENTRIES) {
 // A plain PNG as well, for the window and for any platform without .icns.
 writeFileSync(`${buildDir}/icon.png`, encodePng(render(512), 512));
 
+/**
+ * The Windows icon: one file carrying every size the shell asks for.
+ *
+ * Each entry holds a PNG of its own, which Windows has read since Vista, so
+ * the small sizes keep the simplified artwork drawn for them — the taskbar
+ * and the title bar show sixteen and twenty-four pixels, where a downscaled
+ * large icon is at its muddiest.
+ */
+function encodeIco(sizes) {
+  const images = sizes.map((size) => ({ size, png: encodePng(render(size), size) }));
+  const header = Buffer.alloc(6 + 16 * images.length);
+  header.writeUInt16LE(0, 0); // reserved
+  header.writeUInt16LE(1, 2); // type: icon
+  header.writeUInt16LE(images.length, 4);
+
+  let offset = header.length;
+  images.forEach(({ size, png }, index) => {
+    const entry = 6 + index * 16;
+    header[entry] = size >= 256 ? 0 : size; // 0 means 256
+    header[entry + 1] = size >= 256 ? 0 : size;
+    header[entry + 2] = 0; // no palette
+    header[entry + 3] = 0;
+    header.writeUInt16LE(1, entry + 4); // planes
+    header.writeUInt16LE(32, entry + 6); // bits per pixel
+    header.writeUInt32LE(png.length, entry + 8);
+    header.writeUInt32LE(offset, entry + 12);
+    offset += png.length;
+  });
+  return Buffer.concat([header, ...images.map((image) => image.png)]);
+}
+
+writeFileSync(`${buildDir}/icon.ico`, encodeIco([16, 24, 32, 48, 64, 128, 256]));
+
 execFileSync('iconutil', ['-c', 'icns', iconset, '-o', `${buildDir}/icon.icns`]);
 rmSync(iconset, { recursive: true, force: true });
-console.log(`wrote ${buildDir}/icon.icns and icon.png`);
+console.log(`wrote ${buildDir}/icon.icns, icon.ico and icon.png`);

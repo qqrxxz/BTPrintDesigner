@@ -1,4 +1,4 @@
-# Packaging for macOS.
+# Packaging for macOS and Windows.
 #
 # The app is not signed with a developer certificate and is not notarised —
 # this is a personal tool, and a certificate costs money and a yearly renewal
@@ -43,3 +43,21 @@ dmg:
       path: /Applications
 
 afterPack: ./tools/after-pack.cjs
+
+# Windows: one portable .exe that runs from wherever it is put — a USB stick,
+# a shared folder, a desktop — with no installer and nothing written to the
+# registry. It unpacks itself to a temporary folder on each start, which costs
+# a second or two; that is the price of there being nothing to install.
+#
+# Not signed either, so SmartScreen asks on the first run ("More info", then
+# "Run anyway"). A code-signing certificate would remove that and costs money
+# every year, which a tool used inside one office does not need.
+win:
+  icon: build/icon.ico
+  target:
+    - target: portable
+      arch:
+        - x64
+
+portable:
+  artifactName: ${productName}-${version}-portable.exe

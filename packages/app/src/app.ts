@@ -1502,7 +1502,8 @@ export class App {
     // A customer sends printer code, not a project file, and opening it should
     // be the same command rather than a second one hidden somewhere else.
     if (!isProjectFile(opened.content)) {
-      const name = opened.path.split('/').pop() ?? opened.path;
+      // Windows separates a path with backslashes, everyone else with slashes.
+      const name = opened.path.split(/[\\/]/).pop() ?? opened.path;
       this.openCode(name, opened.content);
       return;
     }
