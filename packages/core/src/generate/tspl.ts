@@ -12,6 +12,7 @@ import type {
   TextElement,
 } from '../model/document.js';
 import {
+  anchorX,
   quantityOf,
   resolveText,
   type GenerationIssue,
@@ -247,6 +248,10 @@ class Generator {
   }
 
   private text(element: TextElement): void {
+    // Text a ZPL file placed by its baseline is placed here by its top, one
+    // character height higher. The font's real ascent would be closer, but only
+    // the renderer knows it; this only matters when a ZPL design is retargeted.
+    const top = element.anchor === 'baseline' ? element.y - element.style.heightMm : element.y;
     const written = this.resolve(element.content, element);
     const content = this.quoted(written, element);
     const height = Math.max(1, this.dots(element.style.heightMm));
@@ -256,7 +261,12 @@ class Generator {
     // A pinned resident font keeps its own multipliers; otherwise font "0" is
     // used, where the multipliers are the character size in dots and the height
     // comes out exactly as designed.
-    const pinned = element.style.residentFont;
+    // A resident font is the TSPL printer's only if it was named in TSPL: a ZPL
+    // "A" or a CPCL "Ari10pt.cpf" is nothing a TSC carries.
+    const pinned =
+      element.style.residentLanguage === undefined || element.style.residentLanguage === 'tspl'
+        ? element.style.residentFont
+        : undefined;
     // The scalable font is an outline of Latin letters: on the TSC this was
     // tested on it printed the ASCII of a Russian line and dropped the rest.
     // Only the resident cells, 1 to 5, carry the code page.
@@ -279,7 +289,7 @@ class Generator {
     if (element.box) {
       const gap = this.dots(element.style.lineGapMm ?? 0);
       this.lines.push(
-        `BLOCK ${this.dots(element.x)},${this.dots(element.y)},` +
+        `BLOCK ${this.dots(anchorX(element, this.document.width))},${this.dots(top)},` +
           `${this.dots(element.box.width)},${this.dots(element.box.height)},` +
           `"${font}",${element.rotation ?? 0},${xMultiplier},${yMultiplier},` +
           `${gap},${alignment},${content}`,
@@ -288,7 +298,7 @@ class Generator {
     }
 
     this.lines.push(
-      `TEXT ${this.dots(element.x)},${this.dots(element.y)},"${font}",` +
+      `TEXT ${this.dots(anchorX(element, this.document.width))},${this.dots(top)},"${font}",` +
         `${element.rotation ?? 0},${xMultiplier},${yMultiplier},${alignment},${content}`,
     );
   }

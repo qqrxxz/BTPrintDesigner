@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { DATAMOBILE_OPERATIONS, detectLanguage, encodeText, resolveEncoding } from '@btpd/core';
+import {
+  DATAMOBILE_OPERATIONS,
+  detectLanguage,
+  encodeText,
+  principalLabel,
+  resolveEncoding,
+} from '@btpd/core';
+import { renderCpcl } from '../../core/src/cpcl/execute.js';
+import { renderTspl } from '../../core/src/tspl/execute.js';
+import { renderZpl } from '../../core/src/zpl/execute.js';
+import { condensedBoldFont, monoFont } from '../../core/test/helpers/fonts.js';
 import { generateCpcl } from '../../core/src/generate/cpcl.js';
 import { generateTspl } from '../../core/src/generate/tspl.js';
 import { generateZpl } from '../../core/src/generate/zpl.js';
@@ -91,6 +101,77 @@ describe('editing a template keeps its DataMobile variables', () => {
       const written = generators[entry.language](imported.document, { dpi: 203 }).source;
       const variables = new Set(entry.source.match(/@[A-Za-z][A-Za-z0-9_.]*@/g) ?? []);
       for (const variable of variables) expect(written, `${entry.file}: ${variable}`).toContain(variable);
+    }
+  });
+});
+
+describe('the preview of a template', () => {
+  const fonts = () => ({ scalable: condensedBoldFont(), fixed: monoFont() });
+  const renderers = { tspl: renderTspl, zpl: renderZpl, cpcl: renderCpcl };
+  const draw = (language: 'tspl' | 'zpl' | 'cpcl', source: string) =>
+    principalLabel(renderers[language](source, { fonts: fonts(), dpi: 203 }).labels)!.bitmap;
+
+  it('shows the label, not the setup job in front of it', () => {
+    // Three of the vendor's files begin with a job that only sets the printer
+    // up, and the preview used to show that one: a blank sheet.
+    for (const entry of STOCK_TEMPLATES) {
+      expect(draw(entry.language, entry.source).data.some((byte) => byte !== 0), entry.file).toBe(true);
+    }
+  });
+
+  it('prints dot for dot the same after a trip through the editor', () => {
+    // The promise of the whole program: open a template, change nothing, and
+    // what goes to the printer draws exactly what the vendor's file drew.
+    for (const entry of STOCK_TEMPLATES) {
+      const document = importers[entry.language](entry.source, { dpi: 203 }).document;
+      const written = generators[entry.language](document, { dpi: 203 }).source;
+      const before = draw(entry.language, entry.source);
+      const after = draw(entry.language, written);
+      expect(`${after.width}x${after.height}`, entry.file).toBe(`${before.width}x${before.height}`);
+      let differing = 0;
+      for (let at = 0; at < before.data.length; at++) {
+        let bits = before.data[at]! ^ after.data[at]!;
+        while (bits) {
+          differing += bits & 1;
+          bits >>= 1;
+        }
+      }
+      expect(differing, `${entry.file}: dots that changed`).toBe(0);
+    }
+  });
+});
+
+describe('the fonts a template names', () => {
+  /**
+   * The preview draws every resident font with a substitute, so a font that
+   * went missing on the way through draws the same dots and the pixel test
+   * cannot see it — while the printer prints another typeface, often one
+   * without Cyrillic. This looks at the file instead.
+   */
+  const fontsIn = (language: 'tspl' | 'zpl' | 'cpcl', source: string): Set<string> => {
+    const found = new Set<string>();
+    if (language === 'zpl') {
+      for (const match of source.matchAll(/\^A([0-9A-Z@])[NRIB]?,[^,^]*,[^,^]*(?:,([^\^,]+))?/g)) {
+        found.add(match[2] !== undefined ? match[2].trim().toUpperCase() : match[1]!);
+      }
+    } else if (language === 'cpcl') {
+      for (const match of source.matchAll(/^(?:T|TEXT|T90|TEXT90|VT|VTEXT|T180|TEXT180|T270|TEXT270)\s+(\S+)\s+(\S+)/gm)) {
+        found.add(`${match[1]} ${match[2]}`);
+      }
+    } else {
+      for (const match of source.matchAll(/^(?:TEXT|BLOCK)\s[^"]*"([^"]+)"/gm)) found.add(match[1]!);
+    }
+    return found;
+  };
+
+  it('are the fonts it still names after a trip through the editor', () => {
+    for (const entry of STOCK_TEMPLATES) {
+      const document = importers[entry.language](entry.source, { dpi: 203 }).document;
+      const written = generators[entry.language](document, { dpi: 203 }).source;
+      const after = fontsIn(entry.language, written);
+      for (const font of fontsIn(entry.language, entry.source)) {
+        expect(after.has(font), `${entry.file}: ${font}`).toBe(true);
+      }
     }
   });
 });

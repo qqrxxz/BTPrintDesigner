@@ -1,5 +1,6 @@
 import type { Rotation } from '../bitmap/Bitmap1.js';
 import type { EncodingChoice } from '../printer/encoding.js';
+import type { PrinterLanguage } from '../printer/profiles.js';
 import type { DataMobileOperation } from '../datamobile/variables.js';
 
 /**
@@ -88,6 +89,22 @@ export interface LabelDocument {
    * with the code in charge again, exactly as it was left.
    */
   readonly code?: string;
+  /**
+   * Which of the label's dimensions the file it came from actually stated.
+   *
+   * A ZPL job need not give ^PW or ^LL, and a CPCL job need not give
+   * PAGE-WIDTH: the printer's own setting decides. The editor still needs a
+   * size to draw on, but writing that size back into the file told a 58 mm
+   * printer to expect a 4 by 2 inch label. What was not stated is not written.
+   * Absent means both were — every design made here states its size.
+   */
+  readonly declaredSize?: { readonly width: boolean; readonly height: boolean };
+  /**
+   * A job sent before the label that only sets the printer up — CPCL's
+   * `! UTILITIES` session — kept as its own job, line for line. Merging its
+   * commands into the label moved settings the printer only accepts there.
+   */
+  readonly setupJob?: readonly string[];
 }
 
 export interface ElementBase {
@@ -112,8 +129,22 @@ export interface TextStyleSpec {
   readonly heightMm: number;
   /** Horizontal stretch; 1 is natural. */
   readonly widthScale?: number;
+  /**
+   * A font the printer carries, by the name its own language gives it: "2" in
+   * TSPL, "A" in ZPL, "Ari10pt.cpf" in CPCL. Written back as it was read, so
+   * the file keeps printing with the font it was designed for.
+   */
   readonly residentFont?: string;
   readonly residentMultiplier?: { readonly x: number; readonly y: number };
+  /** CPCL's size index for the resident font, as written: 0, 1, 2… */
+  readonly residentSize?: number;
+  /**
+   * The language the resident font belongs to. A font in one printer's
+   * firmware means nothing to another's, so a generator for a different
+   * language ignores it and sizes the text by `heightMm` instead. Absent means
+   * any language, which is what files saved before this existed assume.
+   */
+  readonly residentLanguage?: PrinterLanguage;
   /** Extra space between lines of a wrapped block, in millimetres. */
   readonly lineGapMm?: number;
 }
@@ -131,6 +162,25 @@ export interface TextElement extends ElementBase {
    * that runs as far as it runs.
    */
   readonly box?: { readonly width: number; readonly height: number };
+  /**
+   * Where `y` is measured to: the top of the text, or its baseline.
+   *
+   * ZPL's `^FT` places text by its baseline and `^FO` by its top, and reading
+   * one as the other moved every line of a template down by its own height the
+   * first time it was edited. Converting between them needs the font's real
+   * ascent, which only the renderer knows, so the anchor is kept as written.
+   */
+  readonly anchor?: 'baseline';
+  /**
+   * The line is justified between `x` and the right edge of the page, rather
+   * than about `x` as its anchor.
+   *
+   * That is what CPCL's bare CENTER and RIGHT mean, and the edge is the
+   * printer's own — the file does not say where it is. Writing a span as wide
+   * as the editor assumed would centre the line somewhere else on a narrower
+   * printer, so the span is kept as the file had it.
+   */
+  readonly alignSpan?: 'to-edge';
 }
 
 /**
@@ -187,6 +237,11 @@ export interface BarcodeElement extends ElementBase {
   readonly moduleWidth: number;
   readonly height: number;
   readonly humanReadable?: boolean;
+  /**
+   * CPCL: the font, size and gap of the line printed under the bars, as the
+   * `BARCODE-TEXT` or `BT` command gave them.
+   */
+  readonly readableFont?: { readonly font: string; readonly size: number; readonly offset: number };
   /** Wide-to-narrow ratio, for the two-width symbologies. */
   readonly wideRatio?: 2 | 3;
   readonly checkDigit?: boolean;
@@ -275,7 +330,8 @@ export function elementBounds(
       };
     case 'text':
       if (element.box) {
-        return { x: element.x, y: element.y, width: element.box.width, height: element.box.height };
+        const top = element.anchor === 'baseline' ? element.y - element.style.heightMm : element.y;
+        return { x: element.x, y: top, width: element.box.width, height: element.box.height };
       }
       // A single line's width depends on the substituted value and the
       // substitute face, so only the renderer can answer it.

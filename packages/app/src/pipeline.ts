@@ -6,6 +6,7 @@ import {
   importCpcl,
   importTspl,
   importZpl,
+  principalLabel,
   renderCpcl,
   renderTspl,
   renderZpl,
@@ -124,7 +125,7 @@ export function renderFor(
       defaultWidthDots: Math.round(size.widthMm * perMm),
     });
     return {
-      bitmap: rendered.labels[0]?.bitmap ?? blank(),
+      bitmap: principalLabel(rendered.labels)?.bitmap ?? blank(),
       bounds: rendered.bounds,
       diagnostics: rendered.diagnostics,
     };
@@ -140,14 +141,14 @@ export function renderFor(
       defaultHeightDots: Math.round(size.heightMm * perMm),
     });
     return {
-      bitmap: rendered.labels[0]?.bitmap ?? blank(),
+      bitmap: principalLabel(rendered.labels)?.bitmap ?? blank(),
       bounds: rendered.bounds,
       diagnostics: rendered.diagnostics,
     };
   }
   const rendered = renderTspl(code, { fonts: fontSet, dpi: profile.dpi });
   return {
-    bitmap: rendered.labels[0]?.bitmap ?? blank(),
+    bitmap: principalLabel(rendered.labels)?.bitmap ?? blank(),
     bounds: rendered.bounds,
     diagnostics: rendered.diagnostics,
   };

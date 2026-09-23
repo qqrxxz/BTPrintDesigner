@@ -15,7 +15,13 @@ import type { CommandBounds } from '../tspl/execute.js';
 import type { Diagnostic } from '../tspl/parse.js';
 import { dotsToMm, type Dpi } from '../util/units.js';
 import { resolveZplFont, type ZplFontSet } from './fonts.js';
-import { letterParameter, numberParameter, parseZpl, type ZplCommand } from './parse.js';
+import {
+  decodeFieldHex,
+  letterParameter,
+  numberParameter,
+  parseZpl,
+  type ZplCommand,
+} from './parse.js';
 
 /**
  * ZPL II interpreter.
@@ -123,6 +129,8 @@ interface Field {
   barcode: BarcodeState | undefined;
   graphic: Graphic | undefined;
   command: ZplCommand | undefined;
+  /** The ^FH indicator for this field's data, when ^FH was given. */
+  hex: string | undefined;
 }
 
 function emptyField(): Field {
@@ -139,6 +147,7 @@ function emptyField(): Field {
     barcode: undefined,
     graphic: undefined,
     command: undefined,
+    hex: undefined,
   };
 }
 
@@ -298,10 +307,19 @@ class Interpreter {
           justify: letterParameter(command, 3, 'L'),
         };
         return;
+      case 'FH':
+        this.field.hex = (command.parameters[0] ?? '').slice(0, 1) || '_';
+        return;
       case 'FD':
-      case 'FV':
-        this.field.content = command.parameters[0] ?? '';
+      case 'FV': {
+        const raw = command.parameters[0] ?? '';
+        this.field.content = this.field.hex === undefined ? raw : decodeFieldHex(raw, this.field.hex);
         this.field.command ??= command;
+        return;
+      }
+      // ^CW gives a stored font a one-letter name. The preview draws every
+      // resident font with a substitute, so the name changes nothing here.
+      case 'CW':
         return;
       case 'FS':
         this.commit();

@@ -1,3 +1,4 @@
+import { SIZE_IS_HEIGHT_FROM } from '../cpcl/fonts.js';
 import { encodePdf417 } from '../barcode/pdf417/encode.js';
 import { BarcodeError } from '../barcode/types.js';
 import { applyGs1Separator } from '../model/gs1.js';
@@ -154,11 +155,19 @@ class Generator {
           'DataMobile variable such as @Quant@, so one label is printed.',
       });
     }
+    // A job that only sets the printer up goes first, as its own session.
+    const setup = this.document.setupJob ?? [];
+    if (setup.length > 0 && (this.options.includeSetup ?? true)) {
+      this.lines.push('! UTILITIES', ...setup, 'PRINT');
+    }
     this.lines.push(
       `! 0 ${HEADER_DPI} ${HEADER_DPI} ${this.dots(this.document.height)} ${quantity.value}`,
     );
     if (this.options.includeSetup ?? true) {
-      this.lines.push(`PAGE-WIDTH ${this.dots(this.document.width)}`);
+      // A job that stated no page width leaves it to the printer, and so does this.
+      if (this.document.declaredSize?.width !== false) {
+        this.lines.push(`PAGE-WIDTH ${this.dots(this.document.width)}`);
+      }
       this.lines.push(...(this.document.preamble ?? []));
     }
 
@@ -230,9 +239,23 @@ class Generator {
 
   private text(element: TextElement): void {
     const content = this.flattened(this.resolve(element.content, element), element);
-    const height = Math.max(1, this.dots(element.style.heightMm));
+    // A CPCL file's own font goes back as it came: the name and the size index.
+    // Otherwise the scalable font, by height — and a height below nine dots
+    // would be read as a size index, so it is held at nine.
+    const style = element.style;
+    const pinned =
+      style.residentLanguage === 'cpcl' && style.residentFont !== undefined
+        ? `${style.residentFont} ${style.residentSize ?? 0}`
+        : undefined;
+    const height = Math.max(SIZE_IS_HEIGHT_FROM, this.dots(style.heightMm));
+    const font = pinned ?? `${SCALABLE_FONT} ${height}`;
     const x = this.dots(element.x);
-    const y = this.dots(element.y);
+    // Text a ZPL file placed by its baseline is placed here by its top, one
+    // character height higher. The font's real ascent would be closer, but only
+    // the renderer knows it; this only matters when a ZPL design is retargeted.
+    const y = this.dots(
+      element.anchor === 'baseline' ? element.y - element.style.heightMm : element.y,
+    );
     const command = this.textCommand(element);
 
     if (element.box) {
@@ -256,6 +279,16 @@ class Generator {
       });
     }
 
+    if ((element.align === 'center' || element.align === 'right') && element.alignSpan === 'to-edge') {
+      // A span that runs to the printer's own page edge is written the way the
+      // file wrote it: a bare CENTER or RIGHT, from where the text starts.
+      this.lines.push(element.align === 'center' ? 'CENTER' : 'RIGHT');
+      this.lines.push(`${command} ${font} ${x} ${y} ${content}`);
+      this.lines.push('LEFT');
+      this.origins[element.id] = this.lines.length - 1;
+      return;
+    }
+
     if (element.align === 'center' || element.align === 'right') {
       // CPCL justifies inside a span that starts where the text does, so the
       // span has to be placed to put its middle on the anchor.
@@ -265,7 +298,7 @@ class Generator {
       const start = element.align === 'center' ? x - room / 2 : 0;
       this.lines.push(`${element.align === 'center' ? 'CENTER' : 'RIGHT'} ${Math.round(room)}`);
       this.lines.push(
-        `${command} ${SCALABLE_FONT} ${height} ${Math.round(start)} ${y} ${content}`,
+        `${command} ${font} ${Math.round(start)} ${y} ${content}`,
       );
       this.lines.push('LEFT');
       // The drawing line is the middle one, not the reset that follows it.
@@ -273,7 +306,7 @@ class Generator {
       return;
     }
 
-    this.lines.push(`${command} ${SCALABLE_FONT} ${height} ${x} ${y} ${content}`);
+    this.lines.push(`${command} ${font} ${x} ${y} ${content}`);
   }
 
   private rectangle(element: RectangleElement): void {
@@ -361,7 +394,14 @@ class Generator {
       });
     }
 
-    if (element.humanReadable) this.lines.push(`BARCODE-TEXT ${SCALABLE_FONT} 18 5`);
+    if (element.humanReadable) {
+      const readable = element.readableFont;
+      this.lines.push(
+        readable === undefined
+          ? `BARCODE-TEXT ${SCALABLE_FONT} 18 5`
+          : `BARCODE-TEXT ${readable.font} ${readable.size} ${readable.offset}`,
+      );
+    }
     this.lines.push(
       `${command} ${name} ${narrow} ${wide} ${height} ` +
         `${this.dots(element.x)} ${this.dots(element.y)} ${data}`,

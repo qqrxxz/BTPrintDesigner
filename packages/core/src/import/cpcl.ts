@@ -1,3 +1,4 @@
+import { DEFAULT_SIZE_LADDER, SIZE_IS_HEIGHT_FROM } from '../cpcl/fonts.js';
 import { quantityText } from './quantity.js';
 import type { Rotation } from '../bitmap/Bitmap1.js';
 import { numberAt, parseCpcl, tailFrom, wordAt, type CpclCommand } from '../cpcl/parse.js';
@@ -59,7 +60,6 @@ const PREAMBLE_COMMANDS = new Set([
   'REWIND-OFF',
   'ON-FEED',
   'TIMEOUT',
-  'PW',
   'UTILITIES',
 ]);
 
@@ -107,9 +107,15 @@ class Importer {
   private nextId = 1;
   private justification: TextAlignment = 'left';
   private justificationWidth = 0;
-  private barcodeText = false;
+  /** The BARCODE-TEXT / BT in force: font, size and gap, or off. */
+  private barcodeText: { font: string; size: number; offset: number } | undefined;
+  /** Lines of a `! UTILITIES` session, kept as the job they came in. */
+  readonly setupJob: string[] = [];
+  private inUtilities = false;
   private block: { kind: 'qr' | 'pdf417'; command: CpclCommand; keywords: Map<string, string>; lines: string[] } | undefined;
   copies = 1;
+  /** Whether the job gave its own PAGE-WIDTH; the height is in the header. */
+  private statedWidth = false;
   /** What the job says about quantity, variable and all; undefined for one. */
   quantity: string | undefined;
 
@@ -147,6 +153,18 @@ class Importer {
   }
 
   handle(command: CpclCommand): void {
+    // `! UTILITIES` opens a job that only sets the printer up, and PRINT ends
+    // it. Its commands belong to it — several are only accepted there — so
+    // they are kept as that job rather than poured into the label's own.
+    if (command.name === '!' && wordAt(command, 0, '').toUpperCase() === 'UTILITIES') {
+      this.inUtilities = true;
+      return;
+    }
+    if (this.inUtilities) {
+      if (command.name === 'PRINT') this.inUtilities = false;
+      else this.setupJob.push(command.raw.trim());
+      return;
+    }
     if (this.block) {
       if (command.name === 'ENDQR' || command.name === 'ENDPDF' || command.name === 'END') {
         this.closeBlock();
@@ -167,6 +185,7 @@ class Importer {
       case 'PAGE-WIDTH':
       case 'PW':
         this.widthDots = numberAt(command, 0, this.widthDots);
+        this.statedWidth = true;
         return;
       case 'LEFT':
       case 'CENTER':
@@ -177,7 +196,14 @@ class Importer {
         return;
       case 'BARCODE-TEXT':
       case 'BT':
-        this.barcodeText = wordAt(command, 0, '') !== 'OFF' && command.parameters.length > 0;
+        this.barcodeText =
+          wordAt(command, 0, '') === 'OFF' || command.parameters.length === 0
+            ? undefined
+            : {
+                font: command.parameters[0] ?? '0',
+                size: numberAt(command, 1, 0),
+                offset: numberAt(command, 2, 0),
+              };
         return;
       case 'FORM':
       case 'PRINT':
@@ -237,20 +263,33 @@ class Importer {
 
   private text(command: CpclCommand): void {
     const rotation = TEXT_ROTATIONS[command.name]!;
+    const font = command.parameters[0] ?? '0';
     const size = numberAt(command, 1, 0);
     const x = numberAt(command, 2, 0) + this.offsetX;
     const y = numberAt(command, 3, 0);
     const content = tailFrom(command, this.source, 4);
     if (content.length === 0) return;
 
-    // A justified line was written with its span placed so the middle lands on
-    // the anchor; reading it back puts the anchor there again.
-    const anchor =
-      this.justification === 'center'
+    // A justified line sits in a span. Given a width, the model keeps the
+    // span's middle (or right end) as the line's anchor. Given none, the span
+    // runs to the printer's own page edge, which the file does not state — so
+    // the line keeps where it starts, and the span stays "to the edge".
+    const toEdge = this.justification !== 'left' && this.justificationWidth <= 0;
+    const anchor = toEdge
+      ? x
+      : this.justification === 'center'
         ? x + this.justificationWidth / 2
         : this.justification === 'right'
           ? x + this.justificationWidth
           : x;
+
+    // CPCL names a size index, not a height: 0 is the smallest cell of the
+    // font, and only a size from nine up is a height in dots. Reading the
+    // index as dots made every line a tenth of a millimetre tall.
+    const heightDots =
+      size < SIZE_IS_HEIGHT_FROM
+        ? (DEFAULT_SIZE_LADDER[Math.max(0, Math.round(size))] ?? DEFAULT_SIZE_LADDER.at(-1)!)
+        : size;
 
     this.elements.push({
       id: this.id(command),
@@ -259,8 +298,16 @@ class Importer {
       y: this.mm(y),
       ...(rotation === 0 ? {} : { rotation }),
       content,
-      style: { heightMm: this.mm(size) },
+      style: {
+        heightMm: this.mm(heightDots),
+        // The font the job named, kept so it prints with it again — a
+        // downloaded face like Ari10pt.cpf is often what carries the Cyrillic.
+        residentFont: font,
+        residentSize: size,
+        residentLanguage: 'cpcl',
+      },
       ...(this.justification === 'left' ? {} : { align: this.justification }),
+      ...(toEdge ? { alignSpan: 'to-edge' as const } : {}),
     });
   }
 
@@ -364,7 +411,9 @@ class Importer {
       data: tailFrom(command, this.source, 6).trim(),
       moduleWidth: this.mm(narrow),
       height: this.mm(Math.max(1, numberAt(command, 3, 50))),
-      ...(this.barcodeText ? { humanReadable: true } : {}),
+      ...(this.barcodeText
+        ? { humanReadable: true, readableFont: { ...this.barcodeText } }
+        : {}),
       ...(symbology === 'code39' || symbology === 'itf'
         ? { wideRatio: (wide / narrow >= 2.5 ? 3 : 2) as 2 | 3 }
         : {}),
@@ -415,6 +464,8 @@ class Importer {
       height: this.mm(this.heightDots),
       ...(this.preamble.length > 0 ? { preamble: this.preamble } : {}),
       ...(this.quantity === undefined ? {} : { quantity: this.quantity }),
+      ...(this.statedWidth ? {} : { declaredSize: { width: false, height: true } }),
+      ...(this.setupJob.length > 0 ? { setupJob: [...this.setupJob] } : {}),
       elements: this.elements,
     };
   }

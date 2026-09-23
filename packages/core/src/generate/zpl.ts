@@ -13,6 +13,7 @@ import type {
 } from '../model/document.js';
 import { dotsPerMm, type Dpi } from '../util/units.js';
 import {
+  anchorX,
   quantityOf,
   resolveText,
   type GenerationIssue,
@@ -146,8 +147,13 @@ class Generator {
 
     this.lines.push('^XA');
     if (setup) {
-      this.lines.push(`^PW${this.dots(this.document.width)}`);
-      this.lines.push(`^LL${this.dots(this.document.height)}`);
+      // A job that stated no size leaves it to the printer, and so does this.
+      if (this.document.declaredSize?.width !== false) {
+        this.lines.push(`^PW${this.dots(this.document.width)}`);
+      }
+      if (this.document.declaredSize?.height !== false) {
+        this.lines.push(`^LL${this.dots(this.document.height)}`);
+      }
       if (declares) this.lines.push(chosen === 'utf-8' ? '^CI28' : '^CI33');
       this.lines.push(...preamble);
     }
@@ -208,10 +214,22 @@ class Generator {
     const content = this.resolve(element.content, element);
     const height = Math.max(1, this.dots(element.style.heightMm));
     const width = Math.max(1, Math.round(height * (element.style.widthScale ?? 1)));
-    const font = element.style.residentFont ?? '0';
-    const x = this.dots(element.x);
+    // A resident font is the Zebra's only if it was named in ZPL; anything else
+    // is sized through the scalable font 0 by the element's height.
+    const own =
+      element.style.residentLanguage === undefined || element.style.residentLanguage === 'zpl';
+    const font = (own ? element.style.residentFont : undefined) ?? '0';
+    // A font stored on the printer is named by its file (E:ARI003.FNT) and
+    // chosen with ^A@; a resident one is a single letter or digit.
+    const stored = font.includes(':') || font.includes('.');
+    const x = this.dots(anchorX(element, this.document.width));
     const y = this.dots(element.y);
     const facing = this.orientation(element);
+    // ^FT places text by its baseline, as the file it came from did.
+    const origin = element.anchor === 'baseline' ? '^FT' : '^FO';
+    const fontCommand = stored
+      ? `^A@${facing},${height},${width},${font}`
+      : `^A${font}${facing},${height},${width}`;
 
     if (element.box) {
       const justify = element.align === 'center' ? 'C' : element.align === 'right' ? 'R' : 'L';
@@ -221,7 +239,7 @@ class Generator {
       // the line height is how many that is.
       const lines = Math.max(1, Math.floor(this.dots(element.box.height) / (height + lineGap)));
       this.lines.push(
-        `^FO${x},${y}^A${font}${facing},${height},${width}` +
+        `${origin}${x},${y}${fontCommand}` +
           `^FB${blockWidth},${lines},${lineGap},${justify},0${fieldData(content)}^FS`,
       );
       return;
@@ -233,7 +251,7 @@ class Generator {
       const room = Math.min(x, this.dots(this.document.width) - x);
       const blockWidth = Math.max(1, room * 2);
       this.lines.push(
-        `^FO${x - room},${y}^A${font}${facing},${height},${width}` +
+        `${origin}${x - room},${y}${fontCommand}` +
           `^FB${blockWidth},1,0,C,0${fieldData(content)}^FS`,
       );
       return;
@@ -242,7 +260,7 @@ class Generator {
     // ^FO's third parameter right-justifies the field, which needs no block.
     const justification = element.align === 'right' ? ',1' : '';
     this.lines.push(
-      `^FO${x},${y}${justification}^A${font}${facing},${height},${width}${fieldData(content)}^FS`,
+      `${origin}${x},${y}${justification}${fontCommand}${fieldData(content)}^FS`,
     );
   }
 
@@ -454,7 +472,9 @@ class Generator {
  */
 function escape(text: string): string {
   if (!/[\^~]/.test(text)) return text;
-  return `\u0000${text.replace(/\^/g, '_5E').replace(/~/g, '_7E')}`;
+  // Under ^FH an underscore starts an escape, so a literal one is escaped too:
+  // left alone, "A^B_12" would reach the printer as a caret and byte 0x12.
+  return `\u0000${text.replace(/_/g, '_5F').replace(/\^/g, '_5E').replace(/~/g, '_7E')}`;
 }
 
 /** Splits the marker `escape` leaves on data that needs the hex prefix. */

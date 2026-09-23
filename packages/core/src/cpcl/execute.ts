@@ -306,6 +306,14 @@ class Interpreter {
         );
         return;
 
+      // Printer settings a `! UTILITIES` session carries. They change how the
+      // printer feeds and times out, and put nothing on a label.
+      case 'SET-TOF':
+      case 'REWIND-ON':
+      case 'REWIND-OFF':
+      case 'ON-FEED':
+      case 'TIMEOUT':
+        return;
       default:
         if (TEXT_ROTATIONS[command.name] !== undefined) return this.text(command);
         this.report(

@@ -190,6 +190,8 @@ function readElement(reader: Reader, value: unknown, path: string): LabelElement
               },
             }
           : {}),
+        ...(value['anchor'] === 'baseline' ? { anchor: 'baseline' as const } : {}),
+        ...(value['alignSpan'] === 'to-edge' ? { alignSpan: 'to-edge' as const } : {}),
       };
       return element;
     }
@@ -387,6 +389,14 @@ export function parseDocument(value: unknown): DocumentParseResult {
     elements,
     ...(Object.keys(sampleData).length > 0 ? { sampleData } : {}),
     ...(Object.keys(variableSamples).length > 0 ? { variableSamples } : {}),
+    ...(isRecord(value['declaredSize'])
+      ? {
+          declaredSize: {
+            width: value['declaredSize']['width'] !== false,
+            height: value['declaredSize']['height'] !== false,
+          },
+        }
+      : {}),
     ...(typeof value['code'] === 'string' && value['code'].trim() !== ''
       ? { code: value['code'] }
       : {}),

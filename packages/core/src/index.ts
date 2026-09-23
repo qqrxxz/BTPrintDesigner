@@ -84,6 +84,7 @@ export {
 } from './datamobile/variables.js';
 export { commandExamples, commandsIn, exampleFor } from './printer/examples.js';
 export { detectLanguage, isProjectFile } from './printer/detect.js';
+export { hasInk, principalLabel } from './printer/principal.js';
 export {
   declaredEncoding,
   encodeText,

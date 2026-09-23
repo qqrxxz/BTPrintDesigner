@@ -783,13 +783,13 @@ export class App {
       field(
         `${text.width}, mm`,
         numberInput(state.document.width, (value) =>
-          this.store.edit((document) => ({ ...document, width: Math.max(5, value) })),
+          this.store.edit((document) => stated({ ...document, width: Math.max(5, value) }, 'width')),
         ),
       ),
       field(
         `${text.height}, mm`,
         numberInput(state.document.height, (value) =>
-          this.store.edit((document) => ({ ...document, height: Math.max(5, value) })),
+          this.store.edit((document) => stated({ ...document, height: Math.max(5, value) }, 'height')),
         ),
       ),
       // DataMobile fills @Quant@ with the number typed at the terminal; a
@@ -1899,6 +1899,20 @@ function scaleModule(moduleWidth: number, drawn: number, delta: number): number 
   if (drawn <= 0) return moduleWidth;
   const factor = Math.max(0.1, (drawn + delta) / drawn);
   return Math.max(0.05, Math.round(moduleWidth * factor * 100) / 100);
+}
+
+/**
+ * A size typed into the panel is a size the file should state.
+ *
+ * A template that left its width or height to the printer keeps doing so until
+ * someone sets one here; from then on it is written, like any other choice.
+ */
+function stated(document: LabelDocument, dimension: 'width' | 'height'): LabelDocument {
+  const declared = document.declaredSize;
+  if (declared === undefined) return document;
+  const next = { ...declared, [dimension]: true };
+  const { declaredSize: _dropped, ...rest } = document;
+  return next.width && next.height ? (rest as LabelDocument) : { ...rest, declaredSize: next };
 }
 
 /**

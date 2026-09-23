@@ -130,3 +130,20 @@ export function quantityOf(
   const filled = substituteVariables(written, document.variableSamples).trim();
   return { value: /^[1-9]\d*$/.test(filled) ? filled : '1', valid: true };
 }
+
+/**
+ * Where a justified line is anchored, in millimetres.
+ *
+ * Usually that is `x` itself. A line justified to the page edge — CPCL's bare
+ * CENTER — keeps the left end of its span in `x`, and its anchor is worked
+ * out against the label's width for the languages that anchor instead.
+ */
+export function anchorX(
+  element: { readonly x: number; readonly align?: string; readonly alignSpan?: 'to-edge' },
+  labelWidth: number,
+): number {
+  if (element.alignSpan !== 'to-edge') return element.x;
+  if (element.align === 'center') return element.x + (labelWidth - element.x) / 2;
+  if (element.align === 'right') return labelWidth;
+  return element.x;
+}

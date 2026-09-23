@@ -109,8 +109,10 @@ to turn it into a plain 1, which printed one label whatever was typed.
 The toolbar's templates button opens DataMobile's own stock templates, grouped
 by operation. Sixteen of them: one copy of each, listed under every operation
 the vendor files it under. They open the way a customer's file opens — through
-the importer — so what appears is a design to change rather than a picture, and
-a test opens every one of them on every build to keep it that way.
+the importer — so what appears is a design to change rather than a picture. A
+test opens every one of them on every build, writes it back out, and requires
+the label to come out dot for dot the same, with every font and every DataMobile
+variable it named.
 
 ## The left column
 

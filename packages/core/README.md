@@ -152,6 +152,32 @@ page has no room for rather than dropping it. The Windows-1251 table is built
 by asking the platform's own decoder what each byte means, so it is nobody's
 hand-typed magic numbers.
 
+## Opening a file and writing it back must not change the label
+
+That is the test every stock template is held to: import it, generate it again,
+draw both, and the dots must be the same. Getting there meant keeping things the
+model used to flatten.
+
+ZPL's `^FT` places text by its baseline, `^FO` by its top, and reading one as the
+other moved every line down by its own height; text keeps `anchor: 'baseline'`
+and goes back out as `^FT`. A job that states no `^PW`, `^LL` or `PAGE-WIDTH`
+leaves the size to the printer, and `declaredSize` stops the editor's assumed
+size from being written in its place. CPCL's size is an index, not a height in
+dots; its font — `Ari10pt.cpf`, the printer's own — is kept by name, as is the
+font of the line under a barcode, and a bare `CENTER` stays bare because the
+edge it centres to is the printer's. A `! UTILITIES` session stays its own job
+in `setupJob`. A resident font records which language named it, so a CPCL font
+never reaches a TSC. `^A@`'s stored font keeps its file name. `^FH` escapes are
+decoded on the way in, by the preview and the importer both, and an underscore
+is escaped on the way out.
+
+The pixel test cannot see a font going missing — the preview draws every
+resident font with a substitute — so a second test compares the fonts the file
+names before and after.
+
+`principalLabel` picks the label a file is about: the first with anything on
+it, so a setup job in front of the label is not what the preview shows.
+
 ## The document and the code
 
 The document model is the source of truth a project file holds. It is

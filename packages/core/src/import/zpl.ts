@@ -12,7 +12,13 @@ import {
 import type { Diagnostic, SourceSpan } from '../tspl/parse.js';
 import { dotsPerMm, type Dpi } from '../util/units.js';
 import { ZPL_FONTS } from '../zpl/fonts.js';
-import { letterParameter, numberParameter, parseZpl, type ZplCommand } from '../zpl/parse.js';
+import {
+  decodeFieldHex,
+  letterParameter,
+  numberParameter,
+  parseZpl,
+  type ZplCommand,
+} from '../zpl/parse.js';
 import type { ImportMode, UnmappedCommand } from './tspl.js';
 
 /**
@@ -79,12 +85,16 @@ interface Pending {
   y: number;
   justification: number;
   rotation: Rotation;
-  font: { name: string; height: number; width: number } | undefined;
+  font: { name: string; height: number; width: number; file?: string } | undefined;
   block: { width: number; lines: number; gap: number; justify: string } | undefined;
   content: string | undefined;
   command: ZplCommand | undefined;
   barcode: { kind: string; command: ZplCommand; parameters: ZplCommand } | undefined;
   graphic: ZplCommand | undefined;
+  /** Set by ^FT: the field's y is its baseline, not its top. */
+  baseline: boolean;
+  /** The ^FH indicator for this field's data, when ^FH was given. */
+  hex: string | undefined;
 }
 
 function emptyPending(): Pending {
@@ -99,6 +109,8 @@ function emptyPending(): Pending {
     command: undefined,
     barcode: undefined,
     graphic: undefined,
+    baseline: false,
+    hex: undefined,
   };
 }
 
@@ -120,12 +132,19 @@ class Importer {
   private heightDots = 406;
   private homeX = 0;
   private homeY = 0;
-  private defaultFont = { name: '0', height: 15, width: 0 };
+  private defaultFont: { name: string; height: number; width: number; file?: string } = {
+    name: '0',
+    height: 15,
+    width: 0,
+  };
   private moduleWidth = 2;
   private wideRatio = 3;
   private barcodeHeight = 10;
   private nextId = 1;
   private opened = false;
+  /** Whether the job gave its own ^PW and ^LL. */
+  private statedWidth = false;
+  private statedHeight = false;
   /** True once a ^XZ has closed the first label. */
   private finished = false;
   copies = 1;
@@ -189,9 +208,11 @@ class Importer {
         return;
       case 'PW':
         this.widthDots = numberParameter(command, 0, this.widthDots);
+        this.statedWidth = true;
         return;
       case 'LL':
         this.heightDots = numberParameter(command, 0, this.heightDots);
+        this.statedHeight = true;
         return;
       case 'LH':
         this.homeX = numberParameter(command, 0, 0);
@@ -223,13 +244,21 @@ class Importer {
         this.pending.y = numberParameter(command, 1, 0);
         this.pending.justification = numberParameter(command, 2, 0);
         this.pending.command = command;
+        // ^FT puts text on its baseline. Barcodes and boxes are drawn from the
+        // same corner either way, so only text needs to remember which it was.
+        this.pending.baseline = command.name === 'FT';
         return;
       case 'A': {
         const glued = command.parameters[0] ?? '';
+        const file = (command.parameters[3] ?? '').trim();
         this.pending.font = {
           name: glued.slice(0, 1).toUpperCase() || this.defaultFont.name,
           height: numberParameter(command, 1, 0),
           width: numberParameter(command, 2, 0),
+          // ^A@ names a font stored on the printer, E:ARI003.FNT and the like —
+          // often the one that carries the Cyrillic. Losing the name printed
+          // the label in whatever font the printer happened to fall back on.
+          ...(file === '' ? {} : { file }),
         };
         this.pending.rotation = rotationOf(glued.slice(1, 2).toUpperCase());
         return;
@@ -243,13 +272,18 @@ class Importer {
         };
         return;
       case 'FD':
-      case 'FV':
-        this.pending.content = command.parameters[0] ?? '';
+      case 'FV': {
+        // Under ^FH the data spells some bytes in hex. The model holds the
+        // text itself, or `_5E` would come back as three characters and the
+        // next export would print them.
+        const raw = command.parameters[0] ?? '';
+        this.pending.content =
+          this.pending.hex === undefined ? raw : decodeFieldHex(raw, this.pending.hex);
         this.pending.command ??= command;
         return;
+      }
       case 'FH':
-        // The hex escape only affects how data is spelt, and the parser has
-        // already handed over the text; nothing in the model changes.
+        this.pending.hex = (command.parameters[0] ?? '').slice(0, 1) || '_';
         return;
       case 'FS':
         this.commit();
@@ -326,12 +360,20 @@ class Importer {
       heightMm: number;
       widthScale?: number;
       residentFont?: string;
+      residentLanguage?: 'zpl';
     } = { heightMm: this.mm(height) };
 
     if (font.width > 0 && font.width !== height) style.widthScale = font.width / height;
     // Font 0 is the scalable default the generator emits, so it needs no pin;
     // anything else has to be named or the design would change on the way out.
-    if (font.name.toUpperCase() !== '0') style.residentFont = font.name.toUpperCase();
+    if (font.name === '@' && font.file !== undefined) {
+      // A stored font is kept by its file name, which is what ^A@ writes back.
+      style.residentFont = font.file.toUpperCase();
+      style.residentLanguage = 'zpl';
+    } else if (font.name.toUpperCase() !== '0') {
+      style.residentFont = font.name.toUpperCase();
+      style.residentLanguage = 'zpl';
+    }
     return style;
   }
 
@@ -358,6 +400,7 @@ class Importer {
       content: pending.content ?? '',
       style: gap === undefined ? style : { ...style, lineGapMm: gap },
       ...(alignment === undefined ? {} : { align: alignment }),
+      ...(pending.baseline ? { anchor: 'baseline' as const } : {}),
       ...(pending.block
         ? {
             box: {
@@ -524,6 +567,9 @@ class Importer {
       height: this.mm(this.heightDots),
       ...(this.preamble.length > 0 ? { preamble: this.preamble } : {}),
       ...(this.quantity === undefined ? {} : { quantity: this.quantity }),
+      ...(this.statedWidth && this.statedHeight
+        ? {}
+        : { declaredSize: { width: this.statedWidth, height: this.statedHeight } }),
       elements: this.elements,
     };
   }

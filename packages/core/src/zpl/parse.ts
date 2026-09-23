@@ -154,3 +154,38 @@ export function letterParameter(command: ZplCommand, index: number, fallback: st
   if (raw === undefined || raw.length === 0) return fallback;
   return raw.trim().toUpperCase();
 }
+
+/**
+ * Field data with its ^FH escapes undone.
+ *
+ * After ^FH, the indicator — an underscore unless ^FH names another — and two
+ * hex digits stand for one byte. It is how a field carries a caret or a tilde,
+ * which would otherwise start a command, and it is how this program writes
+ * them. Runs of escaped bytes are read as UTF-8 when they are, so an escaped
+ * Cyrillic letter comes back as the letter rather than as two symbols.
+ */
+export function decodeFieldHex(data: string, indicator: string): string {
+  let out = '';
+  let bytes: number[] = [];
+  const flush = (): void => {
+    if (bytes.length === 0) return;
+    try {
+      out += new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes));
+    } catch {
+      out += String.fromCharCode(...bytes);
+    }
+    bytes = [];
+  };
+  for (let at = 0; at < data.length; at++) {
+    const pair = data.slice(at + 1, at + 3);
+    if (data[at] === indicator && /^[0-9A-Fa-f]{2}$/.test(pair)) {
+      bytes.push(Number.parseInt(pair, 16));
+      at += 2;
+      continue;
+    }
+    flush();
+    out += data[at];
+  }
+  flush();
+  return out;
+}

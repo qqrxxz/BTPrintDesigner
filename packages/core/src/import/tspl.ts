@@ -281,6 +281,7 @@ class Importer {
       heightMm: this.mm((cell?.height ?? yMultiplier) * (cell ? yMultiplier : 1)),
       residentFont: name,
       residentMultiplier: { x: xMultiplier, y: yMultiplier },
+      residentLanguage: 'tspl',
     };
   }
 

@@ -57,7 +57,12 @@ export interface Preset {
  */
 function textStyle(language: PrinterLanguage): TextStyleSpec {
   if (language === 'tspl') {
-    return { heightMm: 1.5, residentFont: '1', residentMultiplier: { x: 1, y: 1 } };
+    return {
+      heightMm: 1.5,
+      residentFont: '1',
+      residentMultiplier: { x: 1, y: 1 },
+      residentLanguage: 'tspl',
+    };
   }
   return { heightMm: 3 };
 }
