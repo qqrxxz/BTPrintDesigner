@@ -108,6 +108,8 @@ export interface Strings {
   readonly encodingAuto: string;
   readonly encodingHint: string;
   readonly encodingUnsupported: string;
+  readonly quantity: string;
+  readonly cannotOpen: string;
 }
 
 const en: Strings = {
@@ -223,6 +225,8 @@ const en: Strings = {
     'TSPL’s CODEPAGE, ZPL’s ^CI28 — and writes UTF-8 when it says nothing. A printer told ' +
     'CODEPAGE 1251 and handed UTF-8 prints nonsense where the Russian was.',
   encodingUnsupported: 'This encoding has no place for:',
+  quantity: 'Quantity',
+  cannotOpen: 'This file cannot be opened: it is not a label or printer code, or it is too large.',
 };
 
 const ru: Strings = {
@@ -338,6 +342,8 @@ const ru: Strings = {
     'CODEPAGE у TSPL, ^CI28 у ZPL — и пишет UTF-8, если код молчит. Принтеру, которому ' +
     'сказали CODEPAGE 1251, а дали UTF-8, вместо русского напечатает кашу.',
   encodingUnsupported: 'В этой кодировке нет места для:',
+  quantity: 'Количество',
+  cannotOpen: 'Этот файл не открыть: это не этикетка и не код принтера, либо он слишком большой.',
 };
 
 const DICTIONARIES: Record<Language, Strings> = { en, ru };

@@ -387,6 +387,12 @@ export function parseDocument(value: unknown): DocumentParseResult {
     elements,
     ...(Object.keys(sampleData).length > 0 ? { sampleData } : {}),
     ...(Object.keys(variableSamples).length > 0 ? { variableSamples } : {}),
+    ...(typeof value['code'] === 'string' && value['code'].trim() !== ''
+      ? { code: value['code'] }
+      : {}),
+    ...(typeof value['quantity'] === 'string' && value['quantity'].trim() !== ''
+      ? { quantity: value['quantity'].trim() }
+      : {}),
     ...(value['encoding'] === undefined
       ? {}
       : { encoding: reader.oneOf(value['encoding'], 'encoding', ENCODING_CHOICES, 'auto') }),

@@ -45,7 +45,8 @@ describe('job structure', () => {
   });
 
   it('asks for the number of copies requested', () => {
-    expect(generate([], { copies: 12 }).source).toContain('PRINT 12,1');
+    // One set of twelve: the form DataMobile's own templates use.
+    expect(generate([], { copies: 12 }).source).toContain('PRINT 1,12');
   });
 });
 

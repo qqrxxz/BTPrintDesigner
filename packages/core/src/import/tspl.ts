@@ -118,6 +118,8 @@ class Importer {
   private nextId = 1;
   private printed = false;
   copies = 1;
+  /** What the job says about quantity, variable and all; undefined for one. */
+  quantity: string | undefined;
 
   constructor(private readonly options: TsplImportOptions) {
     this.perMm = dotsPerMm(options.dpi ?? 203);
@@ -212,6 +214,7 @@ class Importer {
         const sets = this.numberAt(command, 0) ?? 1;
         const each = this.numberAt(command, 1) ?? 1;
         this.copies = Math.max(1, Math.round(sets * each));
+        this.quantity = quantityFrom(command.arguments[0], command.arguments[1]);
         this.printed = true;
         return;
       }
@@ -590,9 +593,32 @@ class Importer {
       height: Math.round(this.height * 100) / 100,
       ...(this.gap ? { gap: this.gap } : {}),
       ...(this.preamble.length > 0 ? { preamble: this.preamble } : {}),
+      ...(this.quantity === undefined ? {} : { quantity: this.quantity }),
       elements: this.elements,
     };
   }
+}
+
+/**
+ * The quantity a PRINT asks for, in a form the design can keep.
+ *
+ * DataMobile's templates write `PRINT 1,@Quant@`, and that variable is the
+ * whole point: it is where the number the user typed arrives. It is kept as
+ * written. Two plain numbers multiply out; one label is no quantity at all.
+ */
+function quantityFrom(
+  sets: TsplArgument | undefined,
+  each: TsplArgument | undefined,
+): string | undefined {
+  for (const argument of [sets, each]) {
+    if (argument === undefined || argument.kind === 'number') continue;
+    const text = argument.value.trim();
+    if (text !== '') return text;
+  }
+  const count =
+    (sets?.kind === 'number' ? sets.value : 1) * (each?.kind === 'number' ? each.value : 1);
+  const rounded = Math.max(1, Math.round(count));
+  return rounded === 1 ? undefined : String(rounded);
 }
 
 export function importTspl(source: string, options: TsplImportOptions = {}): TsplImportResult {

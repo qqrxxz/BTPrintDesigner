@@ -1,3 +1,4 @@
+import { quantityText } from './quantity.js';
 import { encodeDataMatrix } from '../barcode/datamatrix/encode.js';
 import type { Rotation } from '../bitmap/Bitmap1.js';
 import {
@@ -128,6 +129,8 @@ class Importer {
   /** True once a ^XZ has closed the first label. */
   private finished = false;
   copies = 1;
+  /** What the job says about quantity, variable and all; undefined for one. */
+  quantity: string | undefined;
 
   private pending = emptyPending();
 
@@ -196,6 +199,8 @@ class Importer {
         return;
       case 'PQ':
         this.copies = Math.max(1, Math.round(numberParameter(command, 0, 1)));
+        // ^PQ@Quant@ is how DataMobile's ZPL templates ask for the quantity.
+        this.quantity = quantityText(command.parameters[0]);
         return;
       case 'CF':
         this.defaultFont = {
@@ -518,6 +523,7 @@ class Importer {
       width: this.mm(this.widthDots),
       height: this.mm(this.heightDots),
       ...(this.preamble.length > 0 ? { preamble: this.preamble } : {}),
+      ...(this.quantity === undefined ? {} : { quantity: this.quantity }),
       elements: this.elements,
     };
   }

@@ -15,6 +15,10 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 const DEV_SERVER = process.env['VITE_DEV_SERVER_URL'] ?? 'http://localhost:5173';
 
 let window_: BrowserWindow | undefined;
+/** Set once the renderer has said the window may close. */
+let closeConfirmed = false;
+/** Set when the close is part of quitting, so the app follows the window. */
+let quitting = false;
 
 function send(channel: string): void {
   window_?.webContents.send(channel);
@@ -53,9 +57,15 @@ function buildMenu(): void {
     {
       label: 'View',
       submenu: [
-        { role: 'reload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
+        // Reload throws the label away without a word, and Cmd+R is in every
+        // browser user's fingers. Kept for development, gone from the build.
+        ...(app.isPackaged
+          ? []
+          : ([
+              { role: 'reload' },
+              { role: 'toggleDevTools' },
+              { type: 'separator' },
+            ] as Electron.MenuItemConstructorOptions[])),
         { role: 'resetZoom' },
         { role: 'zoomIn' },
         { role: 'zoomOut' },
@@ -88,6 +98,24 @@ async function createWindow(): Promise<void> {
   window_.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  // A file dropped on a window is, by default, a page to navigate to: the
+  // editor was replaced by the dropped file's raw text and the label was gone.
+  // The renderer opens dropped files itself; nothing may navigate the window.
+  window_.webContents.on('will-navigate', (event) => event.preventDefault());
+
+  // Closing asks the renderer first, because only it knows whether there is
+  // unsaved work. It answers through `app:close-confirmed`. A renderer that
+  // has crashed cannot answer, and must not keep the window open forever.
+  window_.on('close', (event) => {
+    if (closeConfirmed || window_ === undefined || window_.webContents.isCrashed()) return;
+    event.preventDefault();
+    window_.webContents.send('app:close-requested');
+  });
+  window_.on('closed', () => {
+    window_ = undefined;
+    closeConfirmed = false;
   });
 
   if (app.isPackaged) {
@@ -193,6 +221,30 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle('app:close-confirmed', () => {
+  closeConfirmed = true;
+  if (quitting) app.quit();
+  else window_?.close();
+});
+
+ipcMain.handle('app:close-cancelled', () => {
+  quitting = false;
+});
+
+/**
+ * Reads a file that was dropped on the window.
+ *
+ * The renderer can name any path here, so only the kinds of file the Open
+ * dialog offers are read, and nothing large: a label is a few kilobytes.
+ */
+ipcMain.handle('project:open-path', async (_event, path: string) => {
+  const allowed = /\.(btpd\.json|json|prn|prq|lbl|txt|zpl|tspl|cpcl)$/i;
+  if (typeof path !== 'string' || !allowed.test(path)) return undefined;
+  const bytes = await readFile(path);
+  if (bytes.length > 4 * 1024 * 1024) return undefined;
+  return { path, content: decodeText(bytes) };
+});
+
 ipcMain.handle('window:set-title', (_event, title: string) => {
   window_?.setTitle(title);
 });
@@ -203,6 +255,10 @@ void app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow();
   });
+});
+
+app.on('before-quit', () => {
+  quitting = true;
 });
 
 app.on('window-all-closed', () => {

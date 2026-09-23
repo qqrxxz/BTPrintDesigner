@@ -102,3 +102,31 @@ export function resolveText(
     issues,
   };
 }
+
+/**
+ * The quantity a print command writes, and whether it could be written.
+ *
+ * A variable goes out as written, because DataMobile is what fills it. The
+ * preview is the exception: the interpreter wants a count, so it gets the
+ * variable's sample, or one when the sample is not a count. Anything that is
+ * neither a whole number nor a single variable cannot be sent to a printer
+ * and comes back as one, with `valid` false so the caller can say so.
+ */
+export function quantityOf(
+  document: LabelDocument,
+  options: { readonly copies?: number; readonly resolveVariables?: boolean },
+): { readonly value: string; readonly valid: boolean } {
+  if (options.copies !== undefined) {
+    return { value: String(Math.max(1, Math.round(options.copies))), valid: true };
+  }
+  const written = document.quantity?.trim();
+  if (written === undefined || written === '') return { value: '1', valid: true };
+
+  const count = /^[1-9]\d*$/.test(written);
+  const variable = /^@[A-Za-z][A-Za-z0-9_%.-]*@$/.test(written);
+  if (!count && !variable) return { value: '1', valid: false };
+  if (!options.resolveVariables || count) return { value: written, valid: true };
+
+  const filled = substituteVariables(written, document.variableSamples).trim();
+  return { value: /^[1-9]\d*$/.test(filled) ? filled : '1', valid: true };
+}

@@ -69,6 +69,25 @@ export interface LabelDocument {
    * when it declares nothing.
    */
   readonly encoding?: EncodingChoice;
+  /**
+   * How many labels one print makes: a whole number, or a DataMobile variable.
+   *
+   * For a template this is part of the design, not of the job. DataMobile
+   * puts the number the user typed into `@Quant@`, and a file that says
+   * `PRINT 1,1` instead prints one label whatever they typed — which is what
+   * every stock template quietly turned into once it had been edited here.
+   * Absent means one.
+   */
+  readonly quantity?: string;
+  /**
+   * Printer code the design could not hold, saved as it was typed.
+   *
+   * When the code says something the elements cannot express, the code is what
+   * counts — and saving only the elements threw the hand-written lines away,
+   * while the title bar said the work was saved. A file carrying this opens
+   * with the code in charge again, exactly as it was left.
+   */
+  readonly code?: string;
 }
 
 export interface ElementBase {

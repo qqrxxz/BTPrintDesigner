@@ -48,6 +48,7 @@ import {
   paint,
   renderFor,
 } from './pipeline.js';
+import { documentToSave, reopenedDesign } from './project.js';
 import { nextElementId, replaceElement, Store } from './state.js';
 import { templatesFor, type StockTemplate } from './templates.js';
 
@@ -73,6 +74,11 @@ interface BtpdApi {
   }): Promise<'save' | 'discard' | 'cancel'>;
   setTitle(title: string): Promise<void>;
   onMenu(handler: (action: string) => void): void;
+  pathForFile(file: File): string;
+  openPath(path: string): Promise<{ path: string; content: string } | undefined>;
+  onCloseRequested(handler: () => void): void;
+  confirmClose(): Promise<void>;
+  cancelClose(): Promise<void>;
 }
 
 declare global {
@@ -126,6 +132,24 @@ export class App {
     this.store.subscribe(() => this.render());
     window.btpd?.onMenu((action) => void this.menu(action));
     window.addEventListener('keydown', (event) => this.keyboard(event));
+
+    // The window asks before closing: unsaved work is only known here.
+    window.btpd?.onCloseRequested(() => {
+      void (async () => {
+        if (await this.unsavedWorkKept()) await window.btpd?.confirmClose();
+        else await window.btpd?.cancelClose();
+      })();
+    });
+
+    // A file dropped anywhere on the window is opened, the way Open would.
+    // Without this the browser's default took over and navigated the window
+    // to the file, replacing the editor and everything in it.
+    window.addEventListener('dragover', (event) => event.preventDefault());
+    window.addEventListener('drop', (event) => {
+      event.preventDefault();
+      const file = event.dataTransfer?.files[0];
+      if (file !== undefined) void this.openDropped(file);
+    });
   }
 
   async start(): Promise<void> {
@@ -768,6 +792,15 @@ export class App {
           this.store.edit((document) => ({ ...document, height: Math.max(5, value) })),
         ),
       ),
+      // DataMobile fills @Quant@ with the number typed at the terminal; a
+      // template that says a plain 1 prints one label whatever was typed.
+      this.pickerField(
+        text,
+        text.quantity,
+        textInput(state.document.quantity ?? '1', (value) => this.setQuantity(value)),
+        (value) => this.setQuantity(value),
+        'replace',
+      ),
       field(
         text.encoding,
         select(
@@ -801,6 +834,15 @@ export class App {
     // These write to the design too, and while the code is the truth a design
     // that changed would throw the code away.
     return this.lockWhileDetached(fields, text);
+  }
+
+  /** One label is the same as saying nothing, so it is stored as nothing. */
+  private setQuantity(value: string): void {
+    const quantity = value.trim();
+    this.store.edit((document) => {
+      const { quantity: _dropped, ...rest } = document;
+      return quantity === '' || quantity === '1' ? (rest as LabelDocument) : { ...rest, quantity };
+    });
   }
 
   /** The sample values and the DataMobile variables, which belong together. */
@@ -1497,8 +1539,20 @@ export class App {
   private async open(): Promise<void> {
     if (!(await this.unsavedWorkKept())) return;
     const opened = await window.btpd?.openProject();
-    if (!opened) return;
+    if (opened) this.openFile(opened);
+  }
 
+  private async openDropped(file: File): Promise<void> {
+    const bridge = window.btpd;
+    if (bridge === undefined) return;
+    if (!(await this.unsavedWorkKept())) return;
+    const opened = await bridge.openPath(bridge.pathForFile(file));
+    if (opened) this.openFile(opened);
+    else window.alert(this.text().cannotOpen);
+  }
+
+  /** A file's contents as a design, whichever kind of file it turns out to be. */
+  private openFile(opened: { path: string; content: string }): void {
     // A customer sends printer code, not a project file, and opening it should
     // be the same command rather than a second one hidden somewhere else.
     if (!isProjectFile(opened.content)) {
@@ -1512,6 +1566,11 @@ export class App {
       const parsed = parseDocument(JSON.parse(opened.content));
       if (!parsed.document) {
         window.alert(parsed.issues.map((issue) => issue.message).join('\n'));
+        return;
+      }
+      if (parsed.document.code !== undefined) {
+        const name = opened.path.split(/[\\/]/).pop() ?? opened.path;
+        this.openCode(name, parsed.document.code, { path: opened.path, document: parsed.document });
         return;
       }
       this.store.adopt(parsed.document, {
@@ -1537,7 +1596,11 @@ export class App {
    * rendered by whichever language the chosen printer uses — a ZPL file under
    * a TSC profile would draw nothing at all.
    */
-  private openCode(name: string, source: string): void {
+  private openCode(
+    name: string,
+    source: string,
+    project?: { readonly path: string; readonly document: LabelDocument },
+  ): void {
     const text = this.text();
     const language = detectLanguage(source);
     if (language === undefined) {
@@ -1551,7 +1614,11 @@ export class App {
     }
 
     const imported = importFor(this.store.profile(), source);
-    const document = { ...imported.document, name: name.replace(/\.[^.]+$/, '') };
+    const document = reopenedDesign(
+      imported.document,
+      project?.document,
+      name.replace(/\.[^.]+$/, ''),
+    );
     this.store.adopt(document, {
       mode: imported.mode,
       code: source,
@@ -1560,15 +1627,16 @@ export class App {
       dirty: false,
     });
     // Printer code is not a project file: saving must ask where to put the
-    // JSON rather than write it over the template that was opened.
-    this.store.patch({ filePath: undefined });
+    // JSON rather than write it over the template that was opened. A project
+    // that carried its code is one, and keeps its path.
+    this.store.patch({ filePath: project?.path });
   }
 
   private async save(forceDialog: boolean): Promise<boolean> {
     const state = this.store.get();
     const path = await window.btpd?.saveProject({
       ...(forceDialog || state.filePath === undefined ? {} : { path: state.filePath }),
-      content: serializeDocument(state.document),
+      content: serializeDocument(documentToSave(state)),
       suggestedName: `${state.document.name || 'label'}.btpd.json`,
     });
     if (!path) return false;
@@ -1580,11 +1648,12 @@ export class App {
    * Offers to save work that is about to be thrown away.
    *
    * Returns false when the reader changed their mind, so the caller stops.
-   * An empty label is not worth a question: there is nothing in it to lose.
    */
   private async unsavedWorkKept(): Promise<boolean> {
+    // A label with nothing on it can still have been given a size, a name and
+    // an operation; that is work too, so the only test is whether it changed.
     const state = this.store.get();
-    if (!state.dirty || state.document.elements.length === 0) return true;
+    if (!state.dirty) return true;
 
     // Without the bridge — the browser preview — there is nothing to save to,
     // and a question nobody can answer would stop the command dead.

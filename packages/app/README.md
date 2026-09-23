@@ -52,6 +52,22 @@ Arrow keys nudge by 0.1 mm, with Shift by 1 mm, and every size is also a field
 in the properties panel — which is the exact way to set one, and the way that
 works without a pointer.
 
+## Work is not lost quietly
+
+Closing the window or quitting asks about unsaved work first, the same question
+New and Open ask; the main process holds the close until the renderer, which is
+the only side that knows whether anything changed, answers. Reload and the
+developer tools are not in the menu of the built app, because Cmd+R used to
+throw the label away without a word. A file dropped on the window is opened the
+way Open would open it — by default Chromium navigates to a dropped file, which
+replaced the whole editor with the file's raw text — and nothing is allowed to
+navigate the window at all.
+
+Saving while the code is in charge writes the code into the project file along
+with the design, and opening that file puts the code back in charge. Until this,
+only the elements were saved, and every line typed by hand was lost while the
+title bar said the work was saved.
+
 ## Opening what a customer sent
 
 Open takes a project file or printer code, and decides which it is by looking:
@@ -81,6 +97,12 @@ choice — "as declared", UTF-8, or 1251 — and "as declared" believes the code
 itself, falling back to UTF-8 when the code says nothing. A character the
 encoding has no byte for is named on the way out rather than dropped in
 silence.
+
+The label's quantity is part of the template. DataMobile puts the number typed
+at the terminal into `@Quant@`, and the templates it ships say `PRINT 1,@Quant@`,
+`^PQ@Quant@` or `! 0 200 200 312 @Quant@`; the variable is read back, shown in
+the label's properties, and written out as it was. Editing a stock template used
+to turn it into a plain 1, which printed one label whatever was typed.
 
 ## Templates
 

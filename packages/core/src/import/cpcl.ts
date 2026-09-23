@@ -1,3 +1,4 @@
+import { quantityText } from './quantity.js';
 import type { Rotation } from '../bitmap/Bitmap1.js';
 import { numberAt, parseCpcl, tailFrom, wordAt, type CpclCommand } from '../cpcl/parse.js';
 import {
@@ -109,6 +110,8 @@ class Importer {
   private barcodeText = false;
   private block: { kind: 'qr' | 'pdf417'; command: CpclCommand; keywords: Map<string, string>; lines: string[] } | undefined;
   copies = 1;
+  /** What the job says about quantity, variable and all; undefined for one. */
+  quantity: string | undefined;
 
   constructor(
     private readonly source: string,
@@ -158,6 +161,8 @@ class Importer {
         this.offsetX = numberAt(command, 0, 0);
         this.heightDots = numberAt(command, 3, this.heightDots);
         this.copies = Math.max(1, Math.round(numberAt(command, 4, 1)));
+        // `! 0 200 200 312 @Quant@` is how DataMobile's CPCL asks for it.
+        this.quantity = quantityText(command.parameters[4]);
         return;
       case 'PAGE-WIDTH':
       case 'PW':
@@ -409,6 +414,7 @@ class Importer {
       width: this.mm(this.widthDots),
       height: this.mm(this.heightDots),
       ...(this.preamble.length > 0 ? { preamble: this.preamble } : {}),
+      ...(this.quantity === undefined ? {} : { quantity: this.quantity }),
       elements: this.elements,
     };
   }

@@ -12,7 +12,12 @@ import type {
   TextElement,
 } from '../model/document.js';
 import { dotsPerMm, type Dpi } from '../util/units.js';
-import { resolveText, type GenerationIssue, type TextResolution } from './shared.js';
+import {
+  quantityOf,
+  resolveText,
+  type GenerationIssue,
+  type TextResolution,
+} from './shared.js';
 
 /**
  * Generates ZPL II from a label document.
@@ -156,7 +161,18 @@ class Generator {
       if (this.lines.length > before) this.origins[element.id] = this.lines.length;
     }
 
-    this.lines.push(`^PQ${Math.max(1, Math.round(this.options.copies ?? 1))}`);
+    const quantity = quantityOf(this.document, this.options);
+    if (!quantity.valid) {
+      this.issues.push({
+        severity: 'warning',
+        code: 'generate.quantity-invalid',
+        values: { quantity: this.document.quantity ?? '' },
+        message:
+          `The quantity "${this.document.quantity ?? ''}" is neither a whole number nor a ` +
+          'DataMobile variable such as @Quant@, so one label is printed.',
+      });
+    }
+    this.lines.push(`^PQ${quantity.value}`);
     this.lines.push('^XZ');
   }
 

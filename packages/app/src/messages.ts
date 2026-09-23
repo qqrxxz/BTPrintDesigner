@@ -45,6 +45,9 @@ const RU: Readonly<Record<string, Template>> = {
     'печатается {dots} — то есть {actual} мм.',
   'generate.placeholder-missing':
     'Для плейсхолдера {{{name}}} нет значения; он печатается как есть.',
+  'generate.quantity-invalid':
+    'Количество «{quantity}» — не целое число и не переменная DataMobile вроде @Quant@, ' +
+    'поэтому печатается одна этикетка.',
   'generate.tspl-scalable-not-cyrillic':
     'Здесь текст выходит за пределы латиницы, а шрифт «0» — масштабируемый контур: ' +
     'на проверенном принтере он напечатал из русской строки только латинскую часть. ' +

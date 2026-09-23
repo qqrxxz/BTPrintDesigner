@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { DATAMOBILE_OPERATIONS, detectLanguage, encodeText, resolveEncoding } from '@btpd/core';
+import { generateCpcl } from '../../core/src/generate/cpcl.js';
+import { generateTspl } from '../../core/src/generate/tspl.js';
+import { generateZpl } from '../../core/src/generate/zpl.js';
 import { importCpcl } from '../../core/src/import/cpcl.js';
 import { importTspl } from '../../core/src/import/tspl.js';
 import { importZpl } from '../../core/src/import/zpl.js';
 import { STOCK_TEMPLATES, templatesFor } from '../src/templates.js';
 
 const importers = { tspl: importTspl, zpl: importZpl, cpcl: importCpcl };
+const generators = { tspl: generateTspl, zpl: generateZpl, cpcl: generateCpcl };
 
 describe('the bundled templates', () => {
   it('are all there, with their text', () => {
@@ -73,6 +77,20 @@ describe('exporting a template again', () => {
       const { bytes, unsupported } = encodeText(entry.source, encoding);
       expect(unsupported, entry.file).toEqual([]);
       expect(new TextDecoder(encoding).decode(bytes), entry.file).toBe(entry.source);
+    }
+  });
+});
+
+describe('editing a template keeps its DataMobile variables', () => {
+  it('writes back every variable the vendor put in, @Quant@ included', () => {
+    // Opening a template and changing anything used to turn PRINT 1,@Quant@
+    // into PRINT 1,1 — eleven of these sixteen printed one label from then on,
+    // whatever quantity was typed into DataMobile.
+    for (const entry of STOCK_TEMPLATES) {
+      const imported = importers[entry.language](entry.source, { dpi: 203 });
+      const written = generators[entry.language](imported.document, { dpi: 203 }).source;
+      const variables = new Set(entry.source.match(/@[A-Za-z][A-Za-z0-9_.]*@/g) ?? []);
+      for (const variable of variables) expect(written, `${entry.file}: ${variable}`).toContain(variable);
     }
   });
 });

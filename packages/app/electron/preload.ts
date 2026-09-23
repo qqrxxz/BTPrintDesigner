@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 /**
  * The bridge between the window and the file system.
@@ -32,6 +32,20 @@ const api = {
   }): Promise<'save' | 'discard' | 'cancel'> => ipcRenderer.invoke('dialog:ask-save', request),
 
   setTitle: (title: string): Promise<void> => ipcRenderer.invoke('window:set-title', title),
+
+  /** Where a dropped file lives; the File object alone does not say. */
+  pathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  openPath: (path: string): Promise<{ path: string; content: string } | undefined> =>
+    ipcRenderer.invoke('project:open-path', path),
+
+  onCloseRequested: (handler: () => void): void => {
+    ipcRenderer.on('app:close-requested', () => handler());
+  },
+
+  confirmClose: (): Promise<void> => ipcRenderer.invoke('app:close-confirmed'),
+
+  cancelClose: (): Promise<void> => ipcRenderer.invoke('app:close-cancelled'),
 
   onMenu: (handler: (action: string) => void): void => {
     for (const action of ['new', 'open', 'save', 'save-as', 'export', 'export-png']) {

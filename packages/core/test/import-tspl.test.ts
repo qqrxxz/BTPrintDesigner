@@ -39,10 +39,12 @@ describe('label setup', () => {
     expect(result.document.preamble).toEqual(['SPEED 4', 'DENSITY 8', 'SET TEAR ON']);
   });
 
-  it('reports the copies the job asked for without putting them in the design', () => {
+  it('keeps the quantity the job asked for as part of the design', () => {
+    // For a template the quantity is the template's: DataMobile's arrive as
+    // PRINT 1,@Quant@, and dropping it printed one label whatever was typed.
     const result = importTspl(body('PRINT 3,4').replace('PRINT 1,1\n', ''));
     expect(result.copies).toBe(12);
-    expect(result.document).not.toHaveProperty('copies');
+    expect(result.document.quantity).toBe('12');
   });
 
   it('folds a reference offset into the elements it applies to', () => {

@@ -11,7 +11,12 @@ import type {
   TextElement,
 } from '../model/document.js';
 import { dotsPerMm, type Dpi } from '../util/units.js';
-import { resolveText, type GenerationIssue, type TextResolution } from './shared.js';
+import {
+  quantityOf,
+  resolveText,
+  type GenerationIssue,
+  type TextResolution,
+} from './shared.js';
 
 /**
  * Generates CPCL from a label document.
@@ -137,9 +142,20 @@ class Generator {
   }
 
   generate(): void {
-    const copies = Math.max(1, Math.round(this.options.copies ?? 1));
+    // The header's last field is the quantity: `! 0 200 200 312 @Quant@`.
+    const quantity = quantityOf(this.document, this.options);
+    if (!quantity.valid) {
+      this.issues.push({
+        severity: 'warning',
+        code: 'generate.quantity-invalid',
+        values: { quantity: this.document.quantity ?? '' },
+        message:
+          `The quantity "${this.document.quantity ?? ''}" is neither a whole number nor a ` +
+          'DataMobile variable such as @Quant@, so one label is printed.',
+      });
+    }
     this.lines.push(
-      `! 0 ${HEADER_DPI} ${HEADER_DPI} ${this.dots(this.document.height)} ${copies}`,
+      `! 0 ${HEADER_DPI} ${HEADER_DPI} ${this.dots(this.document.height)} ${quantity.value}`,
     );
     if (this.options.includeSetup ?? true) {
       this.lines.push(`PAGE-WIDTH ${this.dots(this.document.width)}`);

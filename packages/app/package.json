@@ -1,5 +1,6 @@
 {
   "name": "@btpd/app",
+  "productName": "BTPrintDesigner",
   "version": "0.0.1",
   "private": true,
   "description": "Дизайнер этикеток для термопринтеров с честным 1-битным превью: TSPL, ZPL, CPCL",

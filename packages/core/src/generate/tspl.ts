@@ -11,7 +11,12 @@ import type {
   RectangleElement,
   TextElement,
 } from '../model/document.js';
-import { resolveText, type GenerationIssue, type TextResolution } from './shared.js';
+import {
+  quantityOf,
+  resolveText,
+  type GenerationIssue,
+  type TextResolution,
+} from './shared.js';
 import { dotsPerMm, type Dpi } from '../util/units.js';
 
 /**
@@ -210,7 +215,20 @@ class Generator {
       if (this.lines.length > before) this.origins[element.id] = this.lines.length;
     }
 
-    this.lines.push(`PRINT ${Math.max(1, Math.round(this.options.copies ?? 1))},1`);
+    // PRINT sets,copies — one set of the template's quantity, which is the
+    // form every DataMobile template uses: PRINT 1,@Quant@.
+    const quantity = quantityOf(this.document, this.options);
+    if (!quantity.valid) {
+      this.issues.push({
+        severity: 'warning',
+        code: 'generate.quantity-invalid',
+        values: { quantity: this.document.quantity ?? '' },
+        message:
+          `The quantity "${this.document.quantity ?? ''}" is neither a whole number nor a ` +
+          'DataMobile variable such as @Quant@, so one label is printed.',
+      });
+    }
+    this.lines.push(`PRINT 1,${quantity.value}`);
   }
 
   private element(element: LabelElement): void {
