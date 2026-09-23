@@ -19,15 +19,15 @@
     "dist:win": "npm run build && electron-builder --win"
   },
   "devDependencies": {
+    "@btpd/core": "0.0.1",
     "@types/node": "^22.10.0",
     "concurrently": "^9.1.0",
-    "electron": "33.4.11",
+    "electron": "44.4.5",
     "electron-builder": "^26.15.3",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "vitest": "^2.1.8",
-    "wait-on": "^8.0.1",
-    "@btpd/core": "0.0.1"
+    "wait-on": "^8.0.1"
   },
   "author": "Дмитрий Алексеев"
 }

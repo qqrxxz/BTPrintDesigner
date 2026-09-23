@@ -218,6 +218,12 @@ The Windows icon is a proper `.ico` with every size from 16 to 256 in it, each
 drawn at its own resolution by `tools/make-icon.mjs` — the taskbar shows sixteen
 and twenty-four pixels, where a downscaled large icon is at its muddiest.
 
+The runtime is Electron 44, pinned to an exact version because electron-builder
+refuses a range. Electron supports its three newest major lines and nothing
+older, and an unsupported one keeps collecting advisories — 33, which this
+started on, had some thirty by the time it was replaced — so the pin is worth
+moving when a new line comes out. Electron 44 needs macOS 12 or Windows 10.
+
 Only the renderer, the compiled main process and the manifest go into the
 bundle. The core package is deliberately a development dependency: Vite bundles
 it from source, the main process never imports it, and leaving it in the
