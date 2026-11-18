@@ -7,8 +7,18 @@ dist-electron/
 release/
 packages/app/build/icon-preview.png
 
-# Skills installed by `npx skills add`: third-party text that lands in the
-# project rather than being part of it.
+# Local agent and editor settings
 .agents/
-.claude/skills/
+.claude/
+.codex/
+.codebase-memory/
+.idea/
+.vscode/
 skills-lock.json
+
+# Local configuration and generated diagnostics
+.env
+.env.*
+!.env.example
+*.log
+coverage/
