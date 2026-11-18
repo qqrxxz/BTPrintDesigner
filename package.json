@@ -7,8 +7,10 @@
     "packages/*"
   ],
   "scripts": {
+    "dist:mac": "npm run build && npm exec --workspace=@btpd/app -- electron-builder --mac zip --arm64 --x64",
+    "dist:win": "npm run build && npm exec --workspace=@btpd/app -- electron-builder --win portable --x64 --arm64",
     "test": "npm run test --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=@btpd/core && npm run build --workspace=@btpd/app",
     "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "engines": {

@@ -180,10 +180,22 @@ npm run icon              # writes build/icon.icns and build/icon.png
 node tools/make-icon.mjs --preview   # the small sizes, magnified, to judge them
 ```
 
-## Building the installer
+## Portable builds and installer
 
+From the repository root, build portable packages with:
+
+```bash
+npm run dist:mac  # packages/app/release/BTPrintDesigner-<version>-mac-{arm64,x64}.zip
+npm run dist:win  # packages/app/release/BTPrintDesigner-<version>-portable.exe (x64 + ARM64)
 ```
-npm run dist:mac          # release/BTPrintDesigner-<version>-arm64.dmg
+
+The ZIPs contain a standalone `.app`, which can run from a folder of your choice.
+Portable builds do not require an installer; preferences may still be stored in
+the user's application-data directory. The root scripts build the core before
+the app. To also create the Apple Silicon disk image, run from this package:
+
+```bash
+npm run dist:mac  # ZIPs plus release/BTPrintDesigner-<version>-arm64.dmg
 ```
 
 The result is a drag-to-install disk image for Apple Silicon. It is **ad-hoc
