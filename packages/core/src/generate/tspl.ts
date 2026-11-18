@@ -416,7 +416,7 @@ class Generator {
       if (element.symbology === 'datamatrix' || element.symbology === 'gs1-datamatrix') {
         const symbol = encodeDataMatrix(sized, { gs1: element.symbology === 'gs1-datamatrix' });
         this.lines.push(
-          `DMATRIX ${x},${y},${symbol.width * module},${symbol.height * module},` +
+          `DMATRIX ${x},${y},${symbol.width * module},${symbol.height * module},c126,` +
             `${this.quoted(data, element)}`,
         );
         return;

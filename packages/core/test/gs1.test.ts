@@ -53,6 +53,11 @@ describe('the separator token', () => {
 });
 
 describe('generating a GS1 Data Matrix', () => {
+  it.each([false, true])('enables c126 for TSPL with resolveVariables=%s', (resolveVariables) => {
+    const { source } = generateTspl(label(), { dpi: 203, resolveVariables });
+    expect(source).toMatch(/DMATRIX \d+,\d+,\d+,\d+,c126,"/);
+  });
+
   it('keeps the token in the file the printer receives', () => {
     // The printer is what understands `~1`; turning it into a raw control
     // character here would send something the setup did not ask for.

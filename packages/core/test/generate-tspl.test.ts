@@ -283,6 +283,7 @@ describe('two-dimensional symbols', () => {
     // A square symbol at four dots a module: both sides equal and a multiple of four.
     expect(command[2]).toBe(command[3]);
     expect(Number(command[2]) % 4).toBe(0);
+    expect(command[4]).toBe('c126');
   });
 
   it('produces a Data Matrix that decodes after the round trip', () => {
